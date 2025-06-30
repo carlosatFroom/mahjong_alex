@@ -7,10 +7,17 @@ import os
 from typing import Optional
 
 class Config:
+    # LLM Provider configuration
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" or "groq"
+    
     # Ollama configuration
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "localhost")
     OLLAMA_PORT: int = int(os.getenv("OLLAMA_PORT", "11434"))
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "minicpm-v:latest")
+    
+    # Groq configuration
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.2-11b-vision-preview")  # Vision-capable model
     
     # Server configuration
     SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")

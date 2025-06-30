@@ -5,3 +5,5 @@ requests==2.31.0
 # Additional security dependencies
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+# Groq API client
+groq==0.4.1
