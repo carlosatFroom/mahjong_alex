@@ -169,9 +169,13 @@ if __name__ == "__main__":
     import uvicorn
     logger.info("Starting Mahjong AI Tutor with security middleware")
     logger.info(f"LLM Provider: {config.LLM_PROVIDER}")
+    logger.info(f"Environment LLM_PROVIDER: {os.getenv('LLM_PROVIDER', 'NOT_SET')}")
+    
     if config.LLM_PROVIDER.lower() == "groq":
         logger.info(f"Groq Model: {config.GROQ_MODEL}")
         logger.info(f"API Key configured: {'Yes' if config.GROQ_API_KEY else 'No'}")
+        if config.GROQ_API_KEY:
+            logger.info(f"API Key starts with: {config.GROQ_API_KEY[:10]}...")
     else:
         logger.info(f"Ollama configured at: {config.ollama_base_url}")
         logger.info(f"Ollama Model: {config.OLLAMA_MODEL}")

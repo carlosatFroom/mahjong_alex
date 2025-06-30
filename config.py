@@ -6,6 +6,14 @@ Handles environment-specific settings
 import os
 from typing import Optional
 
+# Try to load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not installed, rely on system environment variables
+    pass
+
 class Config:
     # LLM Provider configuration
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" or "groq"

@@ -7,3 +7,5 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 # Groq API client
 groq==0.4.1
+# Environment variable loading
+python-dotenv==1.0.0
