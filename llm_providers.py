@@ -99,6 +99,7 @@ class GroqProvider(LLMProvider):
     """Groq provider for fast cloud inference"""
     
     def __init__(self, api_key: str, model: str):
+        # Simple initialization without any extra parameters
         self.client = Groq(api_key=api_key)
         self.model = model
     
