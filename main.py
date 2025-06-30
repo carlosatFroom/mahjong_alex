@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import requests
@@ -6,6 +6,7 @@ import base64
 import json
 from typing import Optional
 import os
+import time
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
 
@@ -56,10 +57,29 @@ class OllamaClient:
             "stream": False
         }
         
+        # Track timing
+        start_time = time.time()
+        first_token_time = None
+        
         try:
             response = requests.post(url, json=payload, timeout=60)
+            first_token_time = time.time()
             response.raise_for_status()
-            return response.json()
+            
+            end_time = time.time()
+            response_data = response.json()
+            
+            # Add timing and token information
+            response_data["performance"] = {
+                "total_time": round(end_time - start_time, 2),
+                "time_to_first_token": round(first_token_time - start_time, 2),
+                "prompt_eval_count": response_data.get("prompt_eval_count", 0),
+                "eval_count": response_data.get("eval_count", 0),
+                "total_tokens": response_data.get("prompt_eval_count", 0) + response_data.get("eval_count", 0)
+            }
+            
+            return response_data
+            
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=500, detail=f"Ollama API error: {str(e)}")
     
@@ -80,6 +100,11 @@ async def read_root():
     """Serve the main HTML page."""
     return HTMLResponse(content=open("index.html").read())
 
+@app.get("/favicon.ico")
+async def favicon():
+    """Return empty response for favicon requests."""
+    return ""
+
 @app.get("/api/models")
 async def get_models():
     """Get available Ollama models."""
@@ -87,7 +112,7 @@ async def get_models():
 
 @app.post("/api/chat")
 async def chat_with_ai(
-    message: str,
+    message: str = Form(...),
     image: Optional[UploadFile] = File(None)
 ):
     """Chat with the Mahjong AI tutor."""
@@ -108,7 +133,8 @@ async def chat_with_ai(
     return {
         "response": response.get("message", {}).get("content", ""),
         "model": response.get("model", ""),
-        "has_image": image_data is not None
+        "has_image": image_data is not None,
+        "performance": response.get("performance", {})
     }
 
 @app.get("/api/health")

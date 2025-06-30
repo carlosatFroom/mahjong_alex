@@ -109,6 +109,15 @@
             margin-bottom: 5px;
         }
         
+        .performance-info {
+            font-size: 10px;
+            opacity: 0.5;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            color: #666;
+        }
+        
         .image-preview {
             max-width: 200px;
             max-height: 150px;
@@ -308,7 +317,7 @@
         });
         
         // Add message to chat
-        function addMessage(content, isUser = false, hasImage = false, model = '') {
+        function addMessage(content, isUser = false, hasImage = false, model = '', performance = null) {
             const messagesEl = document.getElementById('messages');
             const messageEl = document.createElement('div');
             messageEl.className = `message ${isUser ? 'user' : 'ai'}`;
@@ -324,6 +333,21 @@
             }
             
             html += `<div>${content.replace(/\n/g, '<br>')}</div>`;
+            
+            // Add performance info for AI responses
+            if (!isUser && performance && Object.keys(performance).length > 0) {
+                const inputTokens = performance.prompt_eval_count || 0;
+                const outputTokens = performance.eval_count || 0;
+                const totalTokens = performance.total_tokens || (inputTokens + outputTokens);
+                const ttft = performance.time_to_first_token || 0;
+                const totalTime = performance.total_time || 0;
+                
+                html += `<div class="performance-info">
+                    📊 ${inputTokens} input + ${outputTokens} output = ${totalTokens} tokens | 
+                    ⚡ TTFT: ${ttft}s | ⏱️ Total: ${totalTime}s
+                </div>`;
+            }
+            
             messageEl.innerHTML = html;
             
             messagesEl.appendChild(messageEl);
@@ -370,7 +394,7 @@
                 const data = await response.json();
                 
                 // Add AI response
-                addMessage(data.response, false, false, data.model);
+                addMessage(data.response, false, false, data.model, data.performance);
                 
             } catch (error) {
                 addMessage(`❌ Error: ${error.message}`, false);
