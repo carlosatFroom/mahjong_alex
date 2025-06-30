@@ -1,14 +1,36 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 import base64
 import json
 from typing import Optional
 import os
 import time
+import logging
+from security import security_middleware
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Add security middleware
+app.middleware("http")(security_middleware)
+
+# CORS middleware for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],  # Update with your domain
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 # Ollama configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
@@ -156,4 +178,15 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    logger.info("Starting Mahjong AI Tutor with security middleware")
+    logger.info(f"Ollama configured at: {OLLAMA_BASE_URL}")
+    logger.info(f"Using model: {OLLAMA_MODEL}")
+    
+    # Production configuration
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        log_level="info",
+        access_log=True
+    )
