@@ -158,10 +158,35 @@ sudo systemctl status nginx
 ### Environment Variables
 ```bash
 # /opt/mahjong-ai/.env
-OLLAMA_HOST=localhost:11434
+OLLAMA_HOST=10.9.1.44
+OLLAMA_PORT=11434
+OLLAMA_MODEL=minicpm-v:latest
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
 LOG_LEVEL=INFO
-ALLOWED_ORIGINS=https://your-domain.com
+ALLOWED_ORIGINS=http://10.9.1.44:8000,http://localhost:8000
 MAX_REQUESTS_PER_MINUTE=20
+RATE_LIMIT_WINDOW=60
+```
+
+### Configure Ollama for Network Access
+```bash
+# Stop Ollama service
+sudo systemctl stop ollama
+
+# Configure Ollama to listen on all interfaces
+sudo systemctl edit ollama
+
+# Add this content to the override file:
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl start ollama
+
+# Verify Ollama is listening on all interfaces
+sudo netstat -tlnp | grep 11434
 ```
 
 ### Firewall Rules

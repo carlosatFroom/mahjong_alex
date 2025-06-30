@@ -10,12 +10,13 @@ import os
 import time
 import logging
 from security import security_middleware
+from config import config
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, config.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -26,15 +27,15 @@ app.middleware("http")(security_middleware)
 # CORS middleware for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],  # Update with your domain
+    allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-# Ollama configuration
-OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL = "minicpm-v:latest"  # Vision-capable model
+# Ollama configuration from config
+OLLAMA_BASE_URL = config.ollama_base_url
+OLLAMA_MODEL = config.OLLAMA_MODEL
 
 # Mahjong tutor system prompt
 MAHJONG_SYSTEM_PROMPT = """You are an expert Mahjong tutor with deep knowledge of strategy, tile reading, and game theory. 
@@ -185,8 +186,8 @@ if __name__ == "__main__":
     # Production configuration
     uvicorn.run(
         app, 
-        host="0.0.0.0", 
-        port=8000,
-        log_level="info",
+        host=config.SERVER_HOST, 
+        port=config.SERVER_PORT,
+        log_level=config.LOG_LEVEL.lower(),
         access_log=True
     )
