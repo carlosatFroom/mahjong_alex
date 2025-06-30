@@ -84,11 +84,11 @@ source venv/bin/activate
 python main.py
 ```
 
-The server will start on `http://localhost:8000`
+The server will start on `http://localhost:8080`
 
 ### 2. Use the Chat Interface
 
-1. Open your web browser and go to `http://localhost:8000`
+1. Open your web browser and go to `http://localhost:8080`
 2. Take a photo of your Mahjong tiles and board state
 3. Upload the image using the 📷 button
 4. Ask questions like:

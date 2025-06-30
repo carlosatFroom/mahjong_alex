@@ -87,7 +87,7 @@ server {
     location / {
         limit_req zone=api burst=20 nodelay;
         
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -165,9 +165,9 @@ OLLAMA_HOST=10.9.1.44
 OLLAMA_PORT=11434
 OLLAMA_MODEL=minicpm-v:latest
 SERVER_HOST=0.0.0.0
-SERVER_PORT=8000
+SERVER_PORT=8080
 LOG_LEVEL=INFO
-ALLOWED_ORIGINS=http://10.9.1.44:8000,http://localhost:8000
+ALLOWED_ORIGINS=http://10.9.1.44:8080,http://localhost:8080
 MAX_REQUESTS_PER_MINUTE=20
 RATE_LIMIT_WINDOW=60
 ```
@@ -199,7 +199,7 @@ sudo ufw enable
 sudo ufw allow 22/tcp    # SSH
 sudo ufw allow 80/tcp    # HTTP
 sudo ufw allow 443/tcp   # HTTPS
-sudo ufw deny 8000/tcp   # Block direct access to app
+sudo ufw deny 8080/tcp   # Block direct access to app
 ```
 
 ## Monitoring
@@ -271,8 +271,8 @@ tar -czf $BACKUP_DIR/mahjong-ai_$DATE.tar.gz \
 sudo journalctl -u mahjong-ai -f
 
 # Test security filtering
-curl -v http://localhost:8000/admin
-curl -v http://localhost:8000/wp-admin
+curl -v http://localhost:8080/admin
+curl -v http://localhost:8080/wp-admin
 
 # Monitor performance
 top -p $(pgrep -f "python main.py")
