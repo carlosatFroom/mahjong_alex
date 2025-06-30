@@ -86,8 +86,8 @@ async def get_models():
         return {
             "models": [
                 {"name": config.GROQ_MODEL, "provider": "groq"},
-                {"name": "llama-3.2-11b-vision-preview", "provider": "groq"},
-                {"name": "llama-3.2-1b-preview", "provider": "groq"}
+                {"name": "meta-llama/llama-4-scout-17b-16e-instruct", "provider": "groq"},
+                {"name": "llama-3.3-70b-versatile", "provider": "groq"}
             ]
         }
     else:

@@ -188,7 +188,7 @@ def get_llm_provider(provider_type: str, **kwargs) -> LLMProvider:
         api_key = kwargs.get("api_key")
         if not api_key:
             raise ValueError("Groq API key is required")
-        model = kwargs.get("model", "llama-3.2-11b-vision-preview")
+        model = kwargs.get("model", "meta-llama/llama-4-scout-17b-16e-instruct")
         return GroqProvider(api_key, model)
     
     else:

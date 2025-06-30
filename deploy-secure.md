@@ -158,6 +158,9 @@ sudo systemctl status nginx
 ### Environment Variables
 ```bash
 # /opt/mahjong-ai/.env
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 OLLAMA_HOST=10.9.1.44
 OLLAMA_PORT=11434
 OLLAMA_MODEL=minicpm-v:latest
