@@ -29,7 +29,7 @@ class Config:
     
     # Server configuration
     SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
-    SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8000"))
+    SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8080"))
     
     # Security configuration
     MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "20"))
@@ -37,8 +37,8 @@ class Config:
     
     # CORS configuration
     ALLOWED_ORIGINS: list = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
-        "http://localhost:8000",
-        "http://127.0.0.1:8000"
+        f"http://localhost:{SERVER_PORT}",
+        f"http://127.0.0.1:{SERVER_PORT}"
     ]
     
     # Logging
@@ -55,9 +55,9 @@ class Config:
         config = cls()
         config.OLLAMA_HOST = server_ip  # Use server IP for Ollama
         config.ALLOWED_ORIGINS = [
-            f"http://{server_ip}:8000",
-            "http://localhost:8000",
-            "http://127.0.0.1:8000"
+            f"http://{server_ip}:{config.SERVER_PORT}",
+            f"http://localhost:{config.SERVER_PORT}",
+            f"http://127.0.0.1:{config.SERVER_PORT}"
         ]
         return config
     

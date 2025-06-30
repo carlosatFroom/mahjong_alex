@@ -14,8 +14,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Mahjong tutor system prompt
-MAHJONG_SYSTEM_PROMPT = """You are an expert Mahjong tutor with deep knowledge of strategy, tile reading, and game theory. 
-Your role is to analyze Mahjong game states and provide strategic advice to help players improve.
+MAHJONG_SYSTEM_PROMPT = """You are an expert American Mahjong tutor with deep knowledge of strategy, tile reading, and game theory. 
+Your role is to analyze Mahjong game states and provide strategic advice to help players improve. You use the American Mahjong rules.
 
 When analyzing images:
 1. Identify all visible tiles and their suits (dots, bamboo, characters, honors)
