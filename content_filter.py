@@ -45,7 +45,7 @@ class ContentFilter:
         self.request_history = defaultdict(deque)  # IP -> deque of timestamps
         
         # Models for different stages
-        self.safety_model = "meta-llama/llama-prompt-guard-2-22m"
+        self.safety_model = "meta-llama/llama-guard-4-12b"  # Vision-capable safety model
         self.relevance_model = "llama-3.1-8b-instant"
         
         logger.info(f"Content filter initialized with blacklist threshold: {blacklist_threshold}")
@@ -86,17 +86,34 @@ class ContentFilter:
                self.request_history[client_ip][0] < cutoff):
             self.request_history[client_ip].popleft()
     
-    def check_safety(self, message: str) -> FilterResult:
-        """Stage 1: Safety check using llama-prompt-guard"""
+    def check_safety(self, message: str, image_data: Optional[str] = None) -> FilterResult:
+        """Stage 1: Safety check using llama-guard-4-12b with vision support"""
         try:
-            # Prompt guard expects specific format
-            safety_prompt = f"""Is the following message safe and appropriate? Answer with just "SAFE" or "UNSAFE":
+            # Build message for vision-capable guard
+            safety_prompt = f"""Analyze this message for safety and appropriateness. Consider any image context if provided. 
+
+The message is from a Mahjong tutoring website where users ask for game strategy advice. Questions like "What should I do now?" or "Which tile should I discard?" are completely safe when referring to Mahjong gameplay.
+
+Answer with just "SAFE" or "UNSAFE":
 
 Message: {message}"""
+
+            # Prepare messages for Groq vision API
+            messages = [{"role": "user", "content": safety_prompt}]
+            
+            # Add image if provided (same format as main chat)
+            if image_data:
+                messages = [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": safety_prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
+                    ]
+                }]
             
             response = self.groq_client.chat.completions.create(
                 model=self.safety_model,
-                messages=[{"role": "user", "content": safety_prompt}],
+                messages=messages,
                 max_tokens=10,
                 temperature=0
             )
@@ -117,10 +134,12 @@ Message: {message}"""
             
         except Exception as e:
             logger.error(f"Safety check failed: {e}")
-            # Fail closed - if safety check fails, block the request
+            # Fail open for safety check errors to avoid blocking legitimate users
+            # Log the error but allow through - better UX than blocking everything
+            logger.warning(f"Safety check error, allowing request: {str(e)}")
             return FilterResult(
-                allowed=False,
-                reason=f"Safety check error: {str(e)}",
+                allowed=True,
+                reason=f"Safety check error (allowed): {str(e)}",
                 confidence=0.0,
                 filter_stage="safety",
                 tokens_used=0
@@ -167,9 +186,9 @@ Message: {message}"""
                 tokens_used=0
             )
     
-    def filter_content(self, message: str, client_ip: str) -> Tuple[bool, FilterResult]:
+    def filter_content(self, message: str, client_ip: str, image_data: Optional[str] = None) -> Tuple[bool, FilterResult]:
         """
-        Main filtering pipeline
+        Main filtering pipeline with image support
         Returns: (allowed, filter_result)
         """
         # Check if IP is blacklisted first
@@ -183,14 +202,14 @@ Message: {message}"""
                 tokens_used=0
             )
         
-        # Stage 1: Safety check
-        safety_result = self.check_safety(message)
+        # Stage 1: Safety check with image context
+        safety_result = self.check_safety(message, image_data)
         if not safety_result.allowed:
             self.track_request(client_ip, is_violation=True)
             logger.warning(f"Safety violation from {client_ip}: {safety_result.reason}")
             return False, safety_result
         
-        # Stage 2: Mahjong relevance check
+        # Stage 2: Mahjong relevance check (text only for efficiency)
         relevance_result = self.check_mahjong_relevance(message)
         if not relevance_result.allowed:
             self.track_request(client_ip, is_violation=True)

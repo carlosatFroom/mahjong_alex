@@ -112,10 +112,21 @@ async def chat_with_ai(
     # Get client IP for content filtering
     client_ip = request.client.host if request.client else "unknown"
     
-    # Content filtering (if enabled)
+    # Process image first (needed for content filtering)
+    image_data = None
+    if image:
+        # Validate image type
+        if not image.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Read and encode image
+        image_bytes = await image.read()
+        image_data = base64.b64encode(image_bytes).decode('utf-8')
+    
+    # Content filtering with image context (if enabled)
     if content_filter_instance:
         try:
-            allowed, filter_result = content_filter_instance.filter_content(message, client_ip)
+            allowed, filter_result = content_filter_instance.filter_content(message, client_ip, image_data)
             
             if not allowed:
                 # Log the violation but don't reveal filtering to user
@@ -142,17 +153,6 @@ async def chat_with_ai(
             logger.error(f"Content filter error: {e}")
             # If content filter fails, allow through but log the error
             pass
-    
-    image_data = None
-    
-    if image:
-        # Validate image type
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        # Read and encode image
-        image_bytes = await image.read()
-        image_data = base64.b64encode(image_bytes).decode('utf-8')
     
     # Send to configured LLM provider
     try:
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     # Content filter status
     if content_filter_instance:
         logger.info("Content filter enabled with multi-stage filtering")
-        logger.info(f"Safety model: meta-llama/llama-prompt-guard-2-22m")
+        logger.info(f"Safety model: meta-llama/llama-guard-4-12b (vision-capable)")
         logger.info(f"Relevance model: llama-3.1-8b-instant") 
         logger.info(f"Blacklist threshold: 5 violations")
     else:
