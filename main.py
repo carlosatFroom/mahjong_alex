@@ -13,6 +13,7 @@ from security import security_middleware
 from config import config
 from llm_providers import get_llm_provider
 from content_filter import ContentFilter, get_content_filter
+from image_quality import image_quality_checker
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
 
@@ -112,7 +113,7 @@ async def chat_with_ai(
     # Get client IP for content filtering
     client_ip = request.client.host if request.client else "unknown"
     
-    # Process image first (needed for content filtering)
+    # Process image first (needed for content filtering and quality assessment)
     image_data = None
     if image:
         # Validate image type
@@ -122,6 +123,43 @@ async def chat_with_ai(
         # Read and encode image
         image_bytes = await image.read()
         image_data = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Image quality assessment
+        try:
+            quality_result = image_quality_checker.assess_quality(image_data)
+            
+            if not quality_result.is_acceptable:
+                # Return detailed feedback for image quality issues
+                quality_summary = image_quality_checker.get_quality_summary(quality_result)
+                
+                logger.info(f"Poor image quality from {client_ip}: {quality_result.issues}")
+                
+                # Build helpful error message
+                error_message = "Image quality is not suitable for analysis. "
+                if quality_result.recommendations:
+                    error_message += "Please try: " + "; ".join(quality_result.recommendations)
+                
+                raise HTTPException(
+                    status_code=400, 
+                    detail={
+                        "error": "Poor image quality",
+                        "message": error_message,
+                        "issues": quality_result.issues,
+                        "recommendations": quality_result.recommendations,
+                        "quality_summary": quality_summary
+                    }
+                )
+            
+            # Log successful quality check
+            logger.info(f"Image quality check passed for {client_ip}: sharpness {quality_result.sharpness_score:.0f}%")
+            
+        except HTTPException:
+            raise  # Re-raise HTTP exceptions
+        except Exception as e:
+            logger.error(f"Image quality check failed: {e}")
+            # If quality check fails, log but allow through (fail open)
+            logger.warning(f"Image quality check error, allowing image: {str(e)}")
+            pass
     
     # Content filtering with image context (if enabled)
     if content_filter_instance:

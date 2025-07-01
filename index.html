@@ -510,6 +510,29 @@
                 });
                 
                 if (!response.ok) {
+                    // Try to parse detailed error response
+                    try {
+                        const errorData = await response.json();
+                        
+                        // Handle detailed image quality feedback
+                        if (errorData.detail && typeof errorData.detail === 'object' && errorData.detail.error === "Poor image quality") {
+                            addMessage(`📷 ${errorData.detail.message}`, false);
+                            
+                            // Add specific recommendations as a separate message
+                            if (errorData.detail.recommendations && errorData.detail.recommendations.length > 0) {
+                                setTimeout(() => {
+                                    const tips = errorData.detail.recommendations.map(rec => `• ${rec}`).join('\n');
+                                    addMessage(`💡 Tips for better photos:\n${tips}`, false);
+                                }, 500);
+                            }
+                            return; // Exit early, don't throw
+                        } else if (errorData.detail) {
+                            throw new Error(errorData.detail);
+                        }
+                    } catch (parseError) {
+                        // If we can't parse the error, use generic message
+                    }
+                    
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
