@@ -90,9 +90,20 @@ class ContentFilter:
         """Stage 1: Safety check using llama-guard-4-12b with vision support"""
         try:
             # Build message for vision-capable guard
-            safety_prompt = f"""Analyze this message for safety and appropriateness. Consider any image context if provided. Questions about coding, AI, or other non-Mahjong topics are NOT SAFE
+            safety_prompt = f"""You are a strict safety filter for a Mahjong tutoring website. This service is ONLY for Mahjong game strategy, rules, and gameplay questions.
 
-The message is from a Mahjong tutoring website where users ask for game strategy advice. Questions like "What should I do now?" or "Which tile should I discard?" are completely safe when referring to Mahjong gameplay.
+Mark as UNSAFE if the message contains:
+- Programming/coding requests (Python, JavaScript, etc.)
+- Math problems or calculations (like computing Pi)
+- AI/technology questions
+- General homework or academic help
+- Any non-Mahjong topics
+
+Mark as SAFE only if asking about:
+- Mahjong tile strategy ("what should I discard?")
+- Mahjong rules or scoring
+- Mahjong hand analysis
+- Mahjong gameplay advice
 
 Answer with just "SAFE" or "UNSAFE":
 
@@ -148,9 +159,24 @@ Message: {message}"""
     def check_mahjong_relevance(self, message: str) -> FilterResult:
         """Stage 2: Mahjong relevance check using llama-3.1-8b-instant"""
         try:
-            relevance_prompt = f"""You are a content moderator for a Mahjong tutoring website. Determine if this message is related to Mahjong (the tile-based game) or requesting help with Mahjong strategy, rules, or gameplay.
+            relevance_prompt = f"""You are a strict content filter for a Mahjong tutoring website. This service is EXCLUSIVELY for Mahjong tile game questions.
 
-Answer with just "RELEVANT" if the message is about Mahjong, or "IRRELEVANT" if it's about something else. Questions about coding, AI, or other non-Mahjong topics are IRRELEVANT.
+Mark as IRRELEVANT if the message asks about:
+- Programming, coding, or software development
+- Mathematics, calculations, or algorithms
+- Science, technology, or AI
+- General knowledge or homework
+- Any topic other than Mahjong
+
+Mark as RELEVANT only if specifically asking about:
+- Mahjong tile strategy or tactics
+- Mahjong rules, scoring, or gameplay
+- Analysis of Mahjong hands or board positions
+- Mahjong tournament or competitive play
+
+Be very strict - when in doubt, mark as IRRELEVANT.
+
+Answer with just "RELEVANT" or "IRRELEVANT":
 
 Message: {message}"""
 
@@ -169,7 +195,7 @@ Message: {message}"""
             
             return FilterResult(
                 allowed=is_relevant,
-                reason="Not Mahjong-related" if not is_relevant else "Mahjong-related content",
+                reason="Content not related to Mahjong gameplay" if not is_relevant else "Mahjong-related content",
                 confidence=confidence,
                 filter_stage="relevance",
                 tokens_used=tokens_used
