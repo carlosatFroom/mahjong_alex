@@ -357,7 +357,7 @@
         </div>
         
         <div id="status" class="status">
-            Checking Ollama connection...
+            Checking Groq connection...
         </div>
         
         <div class="chat-container">
@@ -398,7 +398,7 @@
     <script>
         let selectedFile = null;
         
-        // Check Ollama status on load
+        // Check Groq status on load
         async function checkStatus() {
             try {
                 const response = await fetch('/api/health');
@@ -406,10 +406,10 @@
                 const statusEl = document.getElementById('status');
                 
                 if (data.status === 'healthy') {
-                    statusEl.textContent = `✅ Connected to Ollama (${data.available_models} models available)`;
+                    statusEl.textContent = `✅ Connected to Groq (${data.model})`;
                     statusEl.className = 'status healthy';
                 } else {
-                    statusEl.textContent = `❌ Ollama connection failed: ${data.error}`;
+                    statusEl.textContent = `❌ Groq connection failed: ${data.error}`;
                     statusEl.className = 'status unhealthy';
                 }
             } catch (error) {

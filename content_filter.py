@@ -90,7 +90,7 @@ class ContentFilter:
         """Stage 1: Safety check using llama-guard-4-12b with vision support"""
         try:
             # Build message for vision-capable guard
-            safety_prompt = f"""Analyze this message for safety and appropriateness. Consider any image context if provided. 
+            safety_prompt = f"""Analyze this message for safety and appropriateness. Consider any image context if provided. Questions about coding, AI, or other non-Mahjong topics are NOT SAFE
 
 The message is from a Mahjong tutoring website where users ask for game strategy advice. Questions like "What should I do now?" or "Which tile should I discard?" are completely safe when referring to Mahjong gameplay.
 
@@ -150,7 +150,7 @@ Message: {message}"""
         try:
             relevance_prompt = f"""You are a content moderator for a Mahjong tutoring website. Determine if this message is related to Mahjong (the tile-based game) or requesting help with Mahjong strategy, rules, or gameplay.
 
-Answer with just "RELEVANT" if the message is about Mahjong, or "IRRELEVANT" if it's about something else.
+Answer with just "RELEVANT" if the message is about Mahjong, or "IRRELEVANT" if it's about something else. Questions about coding, AI, or other non-Mahjong topics are IRRELEVANT.
 
 Message: {message}"""
 

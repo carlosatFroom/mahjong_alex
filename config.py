@@ -15,15 +15,7 @@ except ImportError:
     pass
 
 class Config:
-    # LLM Provider configuration
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" or "groq"
-    
-    # Ollama configuration
-    OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "localhost")
-    OLLAMA_PORT: int = int(os.getenv("OLLAMA_PORT", "11434"))
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "minicpm-v:latest")
-    
-    # Groq configuration
+    # Groq configuration (production LLM provider)
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")  # Latest vision-capable model
     
@@ -44,16 +36,10 @@ class Config:
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
-    @property
-    def ollama_base_url(self) -> str:
-        """Get the complete Ollama base URL"""
-        return f"http://{self.OLLAMA_HOST}:{self.OLLAMA_PORT}"
-    
     @classmethod
     def for_production(cls, server_ip: str = "10.9.1.44") -> "Config":
         """Create production configuration"""
         config = cls()
-        config.OLLAMA_HOST = server_ip  # Use server IP for Ollama
         config.ALLOWED_ORIGINS = [
             f"http://{server_ip}:{config.SERVER_PORT}",
             f"http://localhost:{config.SERVER_PORT}",
@@ -62,8 +48,7 @@ class Config:
         return config
     
     def __repr__(self):
-        return (f"Config(ollama={self.ollama_base_url}, "
-                f"model={self.OLLAMA_MODEL}, "
+        return (f"Config(groq_model={self.GROQ_MODEL}, "
                 f"server={self.SERVER_HOST}:{self.SERVER_PORT})")
 
 # Global config instance

@@ -1,6 +1,6 @@
 """
 LLM provider abstraction for Mahjong AI Tutor
-Supports both Ollama and Groq for flexibility and performance
+Groq provider for fast cloud inference
 """
 
 import time
@@ -35,65 +35,6 @@ class LLMProvider(ABC):
         """Send a chat message, optionally with an image"""
         pass
 
-class OllamaProvider(LLMProvider):
-    """Ollama provider for local model inference"""
-    
-    def __init__(self, base_url: str, model: str):
-        self.base_url = base_url
-        self.model = model
-    
-    def chat(self, message: str, image_data: Optional[str] = None) -> Dict[str, Any]:
-        """Send a chat message to Ollama, optionally with an image."""
-        url = f"{self.base_url}/api/chat"
-        
-        messages = [
-            {
-                "role": "system",
-                "content": MAHJONG_SYSTEM_PROMPT
-            },
-            {
-                "role": "user",
-                "content": message
-            }
-        ]
-        
-        # Add image if provided
-        if image_data:
-            messages[-1]["images"] = [image_data]
-        
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False
-        }
-        
-        # Track timing
-        start_time = time.time()
-        first_token_time = None
-        
-        try:
-            response = requests.post(url, json=payload, timeout=60)
-            first_token_time = time.time()
-            response.raise_for_status()
-            
-            end_time = time.time()
-            response_data = response.json()
-            
-            # Add timing and token information
-            response_data["performance"] = {
-                "total_time": round(end_time - start_time, 2),
-                "time_to_first_token": round(first_token_time - start_time, 2),
-                "prompt_eval_count": response_data.get("prompt_eval_count", 0),
-                "eval_count": response_data.get("eval_count", 0),
-                "total_tokens": response_data.get("prompt_eval_count", 0) + response_data.get("eval_count", 0),
-                "provider": "ollama"
-            }
-            
-            return response_data
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Ollama API error: {str(e)}")
-            raise Exception(f"Ollama API error: {str(e)}")
 
 class GroqProvider(LLMProvider):
     """Groq provider for fast cloud inference"""
@@ -178,14 +119,9 @@ class GroqProvider(LLMProvider):
             raise Exception(f"Groq API error: {str(e)}")
 
 def get_llm_provider(provider_type: str, **kwargs) -> LLMProvider:
-    """Factory function to get the appropriate LLM provider"""
+    """Factory function to get the Groq LLM provider"""
     
-    if provider_type.lower() == "ollama":
-        base_url = kwargs.get("base_url", "http://localhost:11434")
-        model = kwargs.get("model", "minicpm-v:latest")
-        return OllamaProvider(base_url, model)
-    
-    elif provider_type.lower() == "groq":
+    if provider_type.lower() == "groq":
         api_key = kwargs.get("api_key")
         if not api_key:
             raise ValueError("Groq API key is required")

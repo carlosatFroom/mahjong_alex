@@ -60,7 +60,7 @@ sudo chown mahjong-ai:mahjong-ai /opt/mahjong-ai
 
 ### 2. LLM Provider Setup
 
-#### Option A: Groq (Recommended for Production)
+#### Groq (Production LLM Provider)
 ```bash
 # No installation needed - cloud-based
 # Obtain API key from https://console.groq.com/
@@ -68,21 +68,6 @@ sudo chown mahjong-ai:mahjong-ai /opt/mahjong-ai
 # - meta-llama/llama-guard-4-12b (safety filtering)
 # - llama-3.1-8b-instant (relevance filtering)
 # - meta-llama/llama-4-scout-17b-16e-instruct (main tutor)
-```
-
-#### Option B: Ollama (Local GPU)
-```bash
-# Install Ollama for local inference
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Start Ollama service
-sudo systemctl enable ollama
-sudo systemctl start ollama
-
-# Download models
-ollama pull minicpm-v:latest
-ollama pull llama-3.1-8b-instant
-ollama pull meta-llama/llama-guard-4-12b
 ```
 
 ### 3. Deploy Application
@@ -195,17 +180,9 @@ sudo systemctl status nginx
 ```bash
 # /opt/mahjong-ai/.env
 
-# LLM Provider Configuration
-LLM_PROVIDER=groq  # Use "groq" for cloud inference or "ollama" for local
-
-# Groq Configuration (recommended for production)
+# Groq Configuration (production LLM provider)
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
-
-# Ollama Configuration (for local deployment)
-OLLAMA_HOST=localhost  # or server IP for remote Ollama
-OLLAMA_PORT=11434
-OLLAMA_MODEL=minicpm-v:latest
 
 # Server Configuration
 SERVER_HOST=0.0.0.0
@@ -225,25 +202,6 @@ RATE_LIMIT_WINDOW=60
 # Relevance model: llama-3.1-8b-instant
 ```
 
-### Configure Ollama for Network Access
-```bash
-# Stop Ollama service
-sudo systemctl stop ollama
-
-# Configure Ollama to listen on all interfaces
-sudo systemctl edit ollama
-
-# Add this content to the override file:
-[Service]
-Environment="OLLAMA_HOST=0.0.0.0:11434"
-
-# Reload and restart
-sudo systemctl daemon-reload
-sudo systemctl start ollama
-
-# Verify Ollama is listening on all interfaces
-sudo netstat -tlnp | grep 11434
-```
 
 ### Firewall Rules
 ```bash
@@ -314,14 +272,6 @@ nvidia-smi
 watch -n 1 nvidia-smi
 ```
 
-### Ollama Optimization
-```bash
-# Set GPU memory limit (optional)
-export OLLAMA_GPU_MEMORY_LIMIT=8GB
-
-# Enable GPU acceleration
-export OLLAMA_GPU=1
-```
 
 ## Backup and Recovery
 
