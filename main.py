@@ -12,6 +12,7 @@ import logging
 from security import security_middleware
 from config import config
 from llm_providers import get_llm_provider
+from content_filter import ContentFilter, get_content_filter
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
 
@@ -33,6 +34,14 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+# Initialize content filter
+content_filter_instance = None
+if config.LLM_PROVIDER.lower() == "groq" and config.GROQ_API_KEY:
+    content_filter_instance = ContentFilter(
+        groq_api_key=config.GROQ_API_KEY,
+        blacklist_threshold=5
+    )
 
 # Initialize LLM provider based on configuration
 def get_current_llm_provider():
@@ -95,10 +104,45 @@ async def get_models():
 
 @app.post("/api/chat")
 async def chat_with_ai(
+    request: Request,
     message: str = Form(...),
     image: Optional[UploadFile] = File(None)
 ):
     """Chat with the Mahjong AI tutor."""
+    # Get client IP for content filtering
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Content filtering (if enabled)
+    if content_filter_instance:
+        try:
+            allowed, filter_result = content_filter_instance.filter_content(message, client_ip)
+            
+            if not allowed:
+                # Log the violation but don't reveal filtering to user
+                logger.warning(f"Content filtered from {client_ip}: {filter_result.reason}")
+                
+                # Return generic error for blacklisted IPs (don't reveal blacklist)
+                if filter_result.filter_stage == "blacklist":
+                    raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+                
+                # For other violations, return a helpful message
+                if filter_result.filter_stage == "safety":
+                    raise HTTPException(status_code=400, detail="Please ensure your message is appropriate and follows community guidelines")
+                elif filter_result.filter_stage == "relevance":
+                    raise HTTPException(status_code=400, detail="This service is specifically for Mahjong-related questions. Please ask about Mahjong strategy, rules, or gameplay")
+                else:
+                    raise HTTPException(status_code=400, detail="Unable to process your request")
+            
+            # Log successful filter with token usage
+            logger.info(f"Content filter passed for {client_ip}: {filter_result.tokens_used} tokens used")
+            
+        except HTTPException:
+            raise  # Re-raise HTTP exceptions
+        except Exception as e:
+            logger.error(f"Content filter error: {e}")
+            # If content filter fails, allow through but log the error
+            pass
+    
     image_data = None
     
     if image:
@@ -165,6 +209,48 @@ async def health_check():
             "config_url": config.ollama_base_url if config.LLM_PROVIDER == "ollama" else "groq_api"
         }
 
+@app.get("/api/admin/content-filter/stats")
+async def get_content_filter_stats():
+    """Get content filter statistics (admin endpoint)"""
+    if not content_filter_instance:
+        return {"error": "Content filter not enabled"}
+    
+    return content_filter_instance.get_system_stats()
+
+@app.get("/api/admin/content-filter/ip/{ip}")
+async def get_ip_stats(ip: str):
+    """Get statistics for a specific IP address (admin endpoint)"""
+    if not content_filter_instance:
+        return {"error": "Content filter not enabled"}
+    
+    return content_filter_instance.get_ip_stats(ip)
+
+@app.get("/api/admin/content-filter/blacklist")
+async def get_blacklist():
+    """Get current blacklist (admin endpoint)"""
+    if not content_filter_instance:
+        return {"error": "Content filter not enabled"}
+    
+    return content_filter_instance.export_blacklist()
+
+@app.post("/api/admin/content-filter/blacklist/{ip}")
+async def manual_blacklist_ip(ip: str, reason: str = "Manual admin action"):
+    """Manually blacklist an IP address (admin endpoint)"""
+    if not content_filter_instance:
+        return {"error": "Content filter not enabled"}
+    
+    content_filter_instance.manually_blacklist_ip(ip, reason)
+    return {"message": f"IP {ip} blacklisted", "reason": reason}
+
+@app.delete("/api/admin/content-filter/blacklist/{ip}")
+async def unblacklist_ip(ip: str, reason: str = "Manual admin removal"):
+    """Remove IP from blacklist (admin endpoint)"""
+    if not content_filter_instance:
+        return {"error": "Content filter not enabled"}
+    
+    content_filter_instance.unblacklist_ip(ip, reason)
+    return {"message": f"IP {ip} removed from blacklist", "reason": reason}
+
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting Mahjong AI Tutor with security middleware")
@@ -179,6 +265,15 @@ if __name__ == "__main__":
     else:
         logger.info(f"Ollama configured at: {config.ollama_base_url}")
         logger.info(f"Ollama Model: {config.OLLAMA_MODEL}")
+    
+    # Content filter status
+    if content_filter_instance:
+        logger.info("Content filter enabled with multi-stage filtering")
+        logger.info(f"Safety model: meta-llama/llama-prompt-guard-2-22m")
+        logger.info(f"Relevance model: llama-3.1-8b-instant") 
+        logger.info(f"Blacklist threshold: 5 violations")
+    else:
+        logger.warning("Content filter disabled - running without protection")
     
     # Production configuration
     uvicorn.run(
