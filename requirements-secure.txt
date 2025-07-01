@@ -1,15 +1,24 @@
+# Core web framework and server
 fastapi==0.104.1
 uvicorn==0.24.0
 python-multipart==0.0.6
 requests==2.31.0
-# Additional security dependencies
+
+# Security and authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-# Groq API client
-groq>=0.8.0
-# Environment variable loading
-python-dotenv==1.0.0
+
+# LLM providers
+groq>=0.8.0  # Groq API for fast cloud inference
+
+# Configuration and environment
+python-dotenv==1.0.0  # .env file loading
+
 # Image processing and quality assessment
-opencv-python==4.8.1.78
-numpy==1.24.3
-pillow==10.0.1
+opencv-python==4.8.1.78  # Computer vision for blur/brightness detection
+numpy==1.24.3  # Numerical operations for image analysis
+pillow==10.0.1  # Image format support and preprocessing
+
+# Optional: Development and debugging tools
+# pytest==7.4.0  # Uncomment for testing
+# black==23.7.0   # Uncomment for code formatting

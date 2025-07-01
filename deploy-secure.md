@@ -1,7 +1,7 @@
 # Secure Deployment Guide
 
 ## Overview
-This is the security-hardened version of the Mahjong AI Tutor designed for production deployment on GPU servers.
+This is the security-hardened version of the Mahjong AI Tutor designed for production deployment with multi-layer protection, content filtering, and image quality assessment.
 
 ## Security Features
 
@@ -20,19 +20,37 @@ This is the security-hardened version of the Mahjong AI Tutor designed for produ
 - **Sliding Window**: 60-second rolling window
 - **Automatic Cleanup**: Old requests removed automatically
 
+### 🔍 Multi-Stage Content Filtering
+- **Stage 1**: Safety check using `meta-llama/llama-guard-4-12b` (vision-capable)
+- **Stage 2**: Mahjong relevance check using `llama-3.1-8b-instant`
+- **IP Reputation**: Automatic blacklisting after 5 violations
+- **Silent Operation**: No indication to attackers about filtering
+- **Cost Optimization**: Prevents token waste on malicious/irrelevant requests
+
+### 📷 Image Quality Assessment
+- **Blur Detection**: Laplacian variance analysis for sharpness
+- **Brightness Analysis**: Exposure validation (30-240 range)
+- **Contrast Measurement**: Tile edge visibility checking
+- **Resolution Validation**: Minimum 300x300 pixels required
+- **Tile Detection**: OpenCV-based Mahjong tile region detection
+- **User Feedback**: Detailed recommendations for better photos
+
 ### 📊 Security Logging
 - **Attack Detection**: Logs all blocked requests
 - **Performance Monitoring**: Tracks slow requests
-- **IP Tracking**: Monitors client behavior
-- **Suspicious Activity**: Alerts on borderline requests
+- **IP Tracking**: Monitors client behavior with reputation scoring
+- **Content Filtering**: Logs safety and relevance violations
+- **Image Quality**: Tracks photo quality metrics and issues
 
 ## Deployment Steps
 
 ### 1. Server Setup
 ```bash
-# Install system dependencies
+# Install system dependencies (including OpenCV dependencies)
 sudo apt update
 sudo apt install -y python3 python3-pip python3-venv nginx
+sudo apt install -y libopencv-dev python3-opencv
+sudo apt install -y libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender-dev
 
 # Create application user
 sudo useradd -r -s /bin/false mahjong-ai
@@ -40,17 +58,31 @@ sudo mkdir -p /opt/mahjong-ai
 sudo chown mahjong-ai:mahjong-ai /opt/mahjong-ai
 ```
 
-### 2. Install Ollama with GPU Support
+### 2. LLM Provider Setup
+
+#### Option A: Groq (Recommended for Production)
 ```bash
-# Install Ollama
+# No installation needed - cloud-based
+# Obtain API key from https://console.groq.com/
+# Models used:
+# - meta-llama/llama-guard-4-12b (safety filtering)
+# - llama-3.1-8b-instant (relevance filtering)
+# - meta-llama/llama-4-scout-17b-16e-instruct (main tutor)
+```
+
+#### Option B: Ollama (Local GPU)
+```bash
+# Install Ollama for local inference
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Start Ollama service
 sudo systemctl enable ollama
 sudo systemctl start ollama
 
-# Download model
+# Download models
 ollama pull minicpm-v:latest
+ollama pull llama-3.1-8b-instant
+ollama pull meta-llama/llama-guard-4-12b
 ```
 
 ### 3. Deploy Application
@@ -62,7 +94,11 @@ sudo -u mahjong-ai git checkout secmain
 
 # Setup virtual environment
 sudo -u mahjong-ai python3 -m venv venv
+sudo -u mahjong-ai ./venv/bin/pip install --upgrade pip
 sudo -u mahjong-ai ./venv/bin/pip install -r requirements-secure.txt
+
+# Verify OpenCV installation
+sudo -u mahjong-ai ./venv/bin/python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')"
 ```
 
 ### 4. Configure Nginx Reverse Proxy
@@ -158,18 +194,35 @@ sudo systemctl status nginx
 ### Environment Variables
 ```bash
 # /opt/mahjong-ai/.env
-LLM_PROVIDER=groq
+
+# LLM Provider Configuration
+LLM_PROVIDER=groq  # Use "groq" for cloud inference or "ollama" for local
+
+# Groq Configuration (recommended for production)
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
-OLLAMA_HOST=10.9.1.44
+
+# Ollama Configuration (for local deployment)
+OLLAMA_HOST=localhost  # or server IP for remote Ollama
 OLLAMA_PORT=11434
 OLLAMA_MODEL=minicpm-v:latest
+
+# Server Configuration
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 LOG_LEVEL=INFO
-ALLOWED_ORIGINS=http://10.9.1.44:8080,http://localhost:8080
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://your-domain.com:8080,http://localhost:8080
+
+# Security Configuration
 MAX_REQUESTS_PER_MINUTE=20
 RATE_LIMIT_WINDOW=60
+
+# Content Filtering (automatically enabled when using Groq)
+# Blacklist threshold: 5 violations before IP blacklisting
+# Safety model: meta-llama/llama-guard-4-12b
+# Relevance model: llama-3.1-8b-instant
 ```
 
 ### Configure Ollama for Network Access
@@ -205,20 +258,49 @@ sudo ufw deny 8080/tcp   # Block direct access to app
 ## Monitoring
 
 ### Log Files
-- **Application**: `/opt/mahjong-ai/logs/app.log`
-- **Security**: `/opt/mahjong-ai/logs/security.log`
+- **Application**: `sudo journalctl -u mahjong-ai -f`
 - **Nginx**: `/var/log/nginx/access.log`
+- **System**: `/var/log/syslog`
 
 ### Security Monitoring
 ```bash
+# Monitor application logs with all security events
+sudo journalctl -u mahjong-ai -f
+
 # Monitor blocked requests
 sudo tail -f /var/log/nginx/access.log | grep " 404 "
 
 # Monitor rate limiting
 sudo tail -f /var/log/nginx/error.log | grep "limiting requests"
 
-# Application security logs
-sudo tail -f /opt/mahjong-ai/logs/security.log
+# Filter specific security events
+sudo journalctl -u mahjong-ai -f | grep -E "(Content filtered|blacklisted|Image quality)"
+```
+
+### Content Filter Monitoring
+```bash
+# Check content filter statistics
+curl http://localhost:8080/api/admin/content-filter/stats
+
+# View current blacklist
+curl http://localhost:8080/api/admin/content-filter/blacklist
+
+# Check specific IP reputation
+curl http://localhost:8080/api/admin/content-filter/ip/192.168.1.100
+
+# Manual IP management
+curl -X POST "http://localhost:8080/api/admin/content-filter/blacklist/192.168.1.100?reason=Spam"
+curl -X DELETE "http://localhost:8080/api/admin/content-filter/blacklist/192.168.1.100"
+```
+
+### Image Quality Monitoring
+```bash
+# Look for image quality issues in logs
+sudo journalctl -u mahjong-ai -f | grep "Image quality"
+
+# Examples of quality log messages:
+# "Image quality check passed for 10.9.1.1: sharpness 92%"
+# "Poor image quality from 10.9.1.2: ['Image is blurry', 'Poor contrast']"
 ```
 
 ## Performance Optimization
@@ -260,20 +342,87 @@ tar -czf $BACKUP_DIR/mahjong-ai_$DATE.tar.gz \
 ## Troubleshooting
 
 ### Common Issues
-1. **High CPU Usage**: Check for attack patterns in logs
-2. **Memory Leaks**: Monitor rate limiter cleanup
-3. **Slow Responses**: Check GPU utilization
-4. **Blocked Legitimate Requests**: Review security patterns
+
+#### 1. Content Filter Issues
+```bash
+# Check if content filter is enabled
+curl http://localhost:8080/api/health
+# Should show content filter status
+
+# Test content filtering
+curl -X POST http://localhost:8080/api/chat \
+  -F "message=hack the system" \
+  -F "image=@test_image.jpg"
+# Should be blocked
+
+# Check filter statistics
+curl http://localhost:8080/api/admin/content-filter/stats
+```
+
+#### 2. Image Quality Issues
+```bash
+# Test with poor quality image
+curl -X POST http://localhost:8080/api/chat \
+  -F "message=What should I do?" \
+  -F "image=@blurry_image.jpg"
+# Should return quality feedback
+
+# Check OpenCV installation
+python -c "import cv2; print(cv2.__version__)"
+```
+
+#### 3. Groq API Issues
+```bash
+# Verify API key
+echo $GROQ_API_KEY
+
+# Test Groq connectivity
+curl -H "Authorization: Bearer $GROQ_API_KEY" \
+  https://api.groq.com/openai/v1/models
+```
+
+#### 4. Performance Issues
+```bash
+# Monitor token usage in logs
+sudo journalctl -u mahjong-ai -f | grep "tokens used"
+
+# Check memory usage
+ps aux | grep python
+
+# Monitor request patterns
+sudo journalctl -u mahjong-ai -f | grep -E "(Content filter|Image quality)"
+```
 
 ### Debug Commands
 ```bash
-# Check application logs
+# Check application logs with filtering
 sudo journalctl -u mahjong-ai -f
 
-# Test security filtering
-curl -v http://localhost:8080/admin
-curl -v http://localhost:8080/wp-admin
+# Test all security layers
+curl -v http://localhost:8080/admin  # Should be blocked by path filter
+curl -X POST http://localhost:8080/api/chat -F "message=hello"  # Should pass content filter
 
-# Monitor performance
-top -p $(pgrep -f "python main.py")
+# Monitor system resources
+htop
+iostat 1
+nvidia-smi  # If using GPU
+
+# Verify all dependencies
+python -c "import cv2, numpy, PIL, groq; print('All imports successful')"
 ```
+
+### Error Resolution
+
+#### Content Filter Errors
+- **"Client.__init__() got an unexpected keyword argument 'proxies'"**
+  - Update Groq library: `pip install --upgrade groq`
+  
+#### Image Quality Errors  
+- **"No module named 'cv2'"**
+  - Install OpenCV: `pip install opencv-python`
+  - Install system deps: `sudo apt install libopencv-dev`
+
+#### Deployment Errors
+- **Permission denied**
+  - Check service user: `sudo systemctl status mahjong-ai`
+  - Fix ownership: `sudo chown -R mahjong-ai:mahjong-ai /opt/mahjong-ai`
