@@ -92,11 +92,14 @@ class ContentFilter:
             # Build message for vision-capable guard
             safety_prompt = f"""You are a strict safety filter for a Mahjong tutoring website. This service is ONLY for Mahjong game strategy, rules, and gameplay questions.
 
+IMPORTANT: You must respond with EXACTLY "SAFE" or "UNSAFE" - no other text.
+
 Mark as UNSAFE if the message contains:
 - Programming/coding requests (Python, JavaScript, etc.)
 - Math problems or calculations (like computing Pi)
 - AI/technology questions
 - General homework or academic help
+- Holidays, celebrations, or events
 - Any non-Mahjong topics
 
 Mark as SAFE only if asking about:
@@ -104,6 +107,12 @@ Mark as SAFE only if asking about:
 - Mahjong rules or scoring
 - Mahjong hand analysis
 - Mahjong gameplay advice
+
+EXAMPLES:
+- "Can you provide a python solution for calculating Pi?" → UNSAFE
+- "Tell me about 4th of July celebrations" → UNSAFE
+- "What tile should I discard in Mahjong?" → SAFE
+- "Explain Mahjong scoring rules" → SAFE
 
 Answer with just "SAFE" or "UNSAFE":
 
@@ -132,8 +141,16 @@ Message: {message}"""
             result = response.choices[0].message.content.strip().upper()
             tokens_used = response.usage.total_tokens if response.usage else 0
             
-            is_safe = "SAFE" in result
-            confidence = 0.9 if "SAFE" in result or "UNSAFE" in result else 0.5
+            # More strict validation - only allow if response is exactly "SAFE"
+            is_safe = result == "SAFE"
+            
+            # If response is not exactly "SAFE" or "UNSAFE", treat as unsafe
+            if result not in ["SAFE", "UNSAFE"]:
+                logger.warning(f"Unexpected safety response: {result}")
+                is_safe = False
+                confidence = 0.3
+            else:
+                confidence = 0.9
             
             return FilterResult(
                 allowed=is_safe,
@@ -161,12 +178,15 @@ Message: {message}"""
         try:
             relevance_prompt = f"""You are a strict content filter for a Mahjong tutoring website. This service is EXCLUSIVELY for Mahjong tile game questions.
 
+IMPORTANT: You must respond with EXACTLY "RELEVANT" or "IRRELEVANT" - no other text.
+
 Mark as IRRELEVANT if the message asks about:
-- Programming, coding, or software development
-- Mathematics, calculations, or algorithms
-- Science, technology, or AI
-- General knowledge or homework
-- Any topic other than Mahjong
+- Programming, coding, or software development (Python, JavaScript, etc.)
+- Mathematics, calculations, or algorithms (computing Pi, equations, etc.)
+- Science, technology, or AI questions
+- General knowledge, homework, or academic help
+- Holidays, celebrations, or events (like 4th of July)
+- Any topic other than Mahjong tile game
 
 Mark as RELEVANT only if specifically asking about:
 - Mahjong tile strategy or tactics
@@ -174,11 +194,18 @@ Mark as RELEVANT only if specifically asking about:
 - Analysis of Mahjong hands or board positions
 - Mahjong tournament or competitive play
 
-Be very strict - when in doubt, mark as IRRELEVANT.
+EXAMPLES:
+- "Can you provide a python solution for calculating Pi?" → IRRELEVANT
+- "Tell me about 4th of July celebrations" → IRRELEVANT
+- "How do I solve this math problem?" → IRRELEVANT
+- "What tile should I discard in Mahjong?" → RELEVANT
+- "Explain Mahjong scoring rules" → RELEVANT
 
-Answer with just "RELEVANT" or "IRRELEVANT":
+Be extremely strict - when in doubt, mark as IRRELEVANT.
 
-Message: {message}"""
+Message: {message}
+
+Answer (RELEVANT or IRRELEVANT):"""
 
             response = self.groq_client.chat.completions.create(
                 model=self.relevance_model,
@@ -190,8 +217,16 @@ Message: {message}"""
             result = response.choices[0].message.content.strip().upper()
             tokens_used = response.usage.total_tokens if response.usage else 0
             
-            is_relevant = "RELEVANT" in result
-            confidence = 0.9 if "RELEVANT" in result or "IRRELEVANT" in result else 0.5
+            # More strict validation - only allow if response is exactly "RELEVANT"
+            is_relevant = result == "RELEVANT"
+            
+            # If response is not exactly "RELEVANT" or "IRRELEVANT", treat as irrelevant
+            if result not in ["RELEVANT", "IRRELEVANT"]:
+                logger.warning(f"Unexpected relevance response: {result}")
+                is_relevant = False
+                confidence = 0.3
+            else:
+                confidence = 0.9
             
             return FilterResult(
                 allowed=is_relevant,
@@ -203,10 +238,11 @@ Message: {message}"""
             
         except Exception as e:
             logger.error(f"Relevance check failed: {e}")
-            # Fail open for relevance - if check fails, allow through
+            # Fail closed for relevance - if check fails, block the request
+            # This is more secure than allowing everything through
             return FilterResult(
-                allowed=True,
-                reason=f"Relevance check error (allowed): {str(e)}",
+                allowed=False,
+                reason=f"Relevance check error (blocked): {str(e)}",
                 confidence=0.0,
                 filter_stage="relevance",
                 tokens_used=0
