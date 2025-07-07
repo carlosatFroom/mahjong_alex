@@ -14,6 +14,9 @@ from config import config
 from llm_providers import get_llm_provider
 from content_filter import ContentFilter, get_content_filter
 from image_quality import image_quality_checker
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
 
