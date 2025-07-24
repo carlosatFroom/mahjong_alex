@@ -225,11 +225,12 @@ def internal_error(error):
 if __name__ == '__main__':
     try:
         init_services()
-        port = int(os.getenv('PORT', 5000))
+        host = os.getenv('SERVER_HOST', '0.0.0.0')
+        port = int(os.getenv('SERVER_PORT', 5000))
         debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
         
         logger.info(f"Starting Mahjong Tutor API on port {port}")
-        app.run(host='0.0.0.0', port=port, debug=debug)
+        app.run(host=host, port=port, debug=debug)
         
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
