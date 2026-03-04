@@ -72,7 +72,7 @@ async def get_models():
     return {
         "models": [
             {"name": config.GROQ_MODEL, "provider": "groq", "type": "main"},
-            {"name": "meta-llama/llama-guard-4-12b", "provider": "groq", "type": "safety"},
+            {"name": "openai/gpt-oss-safeguard-20b", "provider": "groq", "type": "safety"},
             {"name": "llama-3.1-8b-instant", "provider": "groq", "type": "relevance"}
         ]
     }
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     # Content filter status
     if content_filter_instance:
         logger.info("Content filter enabled with multi-stage filtering")
-        logger.info(f"Safety model: meta-llama/llama-guard-4-12b (vision-capable)")
+        logger.info(f"Safety model: openai/gpt-oss-safeguard-20b (vision-capable)")
         logger.info(f"Relevance model: llama-3.1-8b-instant") 
         logger.info(f"Blacklist threshold: 5 violations")
     else:

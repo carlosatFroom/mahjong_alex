@@ -21,7 +21,7 @@ This is the security-hardened version of the Mahjong AI Tutor designed for produ
 - **Automatic Cleanup**: Old requests removed automatically
 
 ### 🔍 Multi-Stage Content Filtering
-- **Stage 1**: Safety check using `meta-llama/llama-guard-4-12b` (vision-capable)
+- **Stage 1**: Safety check using `openai/gpt-oss-safeguard-20b` (vision-capable)
 - **Stage 2**: Mahjong relevance check using `llama-3.1-8b-instant`
 - **IP Reputation**: Automatic blacklisting after 5 violations
 - **Silent Operation**: No indication to attackers about filtering
@@ -65,7 +65,7 @@ sudo chown mahjong-ai:mahjong-ai /opt/mahjong-ai
 # No installation needed - cloud-based
 # Obtain API key from https://console.groq.com/
 # Models used:
-# - meta-llama/llama-guard-4-12b (safety filtering)
+# - openai/gpt-oss-safeguard-20b (safety filtering)
 # - llama-3.1-8b-instant (relevance filtering)
 # - meta-llama/llama-4-scout-17b-16e-instruct (main tutor)
 ```
@@ -198,7 +198,7 @@ RATE_LIMIT_WINDOW=60
 
 # Content Filtering (automatically enabled when using Groq)
 # Blacklist threshold: 5 violations before IP blacklisting
-# Safety model: meta-llama/llama-guard-4-12b
+# Safety model: openai/gpt-oss-safeguard-20b
 # Relevance model: llama-3.1-8b-instant
 ```
 

@@ -209,7 +209,7 @@ Add this single line to any webpage:
 ## Security Features
 
 ### Content Filtering
-- **Safety Check**: Blocks unsafe content using llama-guard-4-12b
+- **Safety Check**: Blocks unsafe content using gpt-oss-safeguard-20b
 - **Relevance Check**: Ensures only Mahjong-related content using llama-3.1-8b-instant
 - **IP Reputation**: Tracks and blocks abusive IPs
 - **Rate Limiting**: Built-in request tracking
