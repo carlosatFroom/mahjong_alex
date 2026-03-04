@@ -45,7 +45,7 @@ class ContentFilter:
         self.request_history = defaultdict(deque)  # IP -> deque of timestamps
         
         # Models for different stages
-        self.safety_model = "meta-llama/llama-guard-4-12b"  # Vision-capable safety model
+        self.safety_model = "openai/gpt-oss-safeguard-20b"  # Vision-capable safety model
         self.relevance_model = "llama-3.1-8b-instant"
         
         logger.info(f"Content filter initialized with blacklist threshold: {blacklist_threshold}")
@@ -87,7 +87,7 @@ class ContentFilter:
             self.request_history[client_ip].popleft()
     
     def check_safety(self, message: str, image_data: Optional[str] = None) -> FilterResult:
-        """Stage 1: Safety check using llama-guard-4-12b with vision support"""
+        """Stage 1: Safety check using gpt-oss-safeguard-20b with vision support"""
         try:
             # Build message for vision-capable guard
             safety_prompt = f"""You are a strict safety filter for a Mahjong tutoring website. This service is ONLY for Mahjong game strategy, rules, and gameplay questions.
