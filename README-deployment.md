@@ -210,7 +210,7 @@ Add this single line to any webpage:
 
 ### Content Filtering
 - **Safety Check**: Blocks unsafe content using gpt-oss-safeguard-20b
-- **Relevance Check**: Ensures only Mahjong-related content using llama-3.1-8b-instant
+- **Relevance Check**: Ensures only Mahjong-related content using openai/gpt-oss-20b
 - **IP Reputation**: Tracks and blocks abusive IPs
 - **Rate Limiting**: Built-in request tracking
 

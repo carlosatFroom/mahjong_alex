@@ -22,7 +22,7 @@ This is the security-hardened version of the Mahjong AI Tutor designed for produ
 
 ### 🔍 Multi-Stage Content Filtering
 - **Stage 1**: Safety check using `openai/gpt-oss-safeguard-20b` (vision-capable)
-- **Stage 2**: Mahjong relevance check using `llama-3.1-8b-instant`
+- **Stage 2**: Mahjong relevance check using `openai/gpt-oss-20b`
 - **IP Reputation**: Automatic blacklisting after 5 violations
 - **Silent Operation**: No indication to attackers about filtering
 - **Cost Optimization**: Prevents token waste on malicious/irrelevant requests
@@ -66,8 +66,8 @@ sudo chown mahjong-ai:mahjong-ai /opt/mahjong-ai
 # Obtain API key from https://console.groq.com/
 # Models used:
 # - openai/gpt-oss-safeguard-20b (safety filtering)
-# - llama-3.1-8b-instant (relevance filtering)
-# - meta-llama/llama-4-scout-17b-16e-instruct (main tutor)
+# - openai/gpt-oss-20b (relevance filtering)
+# - openai/gpt-oss-20b (main tutor)
 ```
 
 ### 3. Deploy Application
@@ -182,7 +182,7 @@ sudo systemctl status nginx
 
 # Groq Configuration (production LLM provider)
 GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+GROQ_MODEL=openai/gpt-oss-20b
 
 # Server Configuration
 SERVER_HOST=0.0.0.0
@@ -199,7 +199,7 @@ RATE_LIMIT_WINDOW=60
 # Content Filtering (automatically enabled when using Groq)
 # Blacklist threshold: 5 violations before IP blacklisting
 # Safety model: openai/gpt-oss-safeguard-20b
-# Relevance model: llama-3.1-8b-instant
+# Relevance model: openai/gpt-oss-20b
 ```
 
 

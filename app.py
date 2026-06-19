@@ -186,7 +186,7 @@ And the 2025 card information is as follows:
     
     # Generate response
     response = groq_client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
+        model="openai/gpt-oss-20b",
         messages=messages,
         max_tokens=1000,
         temperature=0.7

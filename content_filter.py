@@ -46,7 +46,7 @@ class ContentFilter:
         
         # Models for different stages
         self.safety_model = "openai/gpt-oss-safeguard-20b"  # Vision-capable safety model
-        self.relevance_model = "llama-3.1-8b-instant"
+        self.relevance_model = "openai/gpt-oss-20b"
         
         logger.info(f"Content filter initialized with blacklist threshold: {blacklist_threshold}")
     
@@ -174,7 +174,7 @@ Message: {message}"""
             )
     
     def check_mahjong_relevance(self, message: str) -> FilterResult:
-        """Stage 2: Mahjong relevance check using llama-3.1-8b-instant"""
+        """Stage 2: Mahjong relevance check using openai/gpt-oss-20b"""
         try:
             relevance_prompt = f"""You are a strict content filter for a Mahjong tutoring website. This service is EXCLUSIVELY for Mahjong tile game questions.
 

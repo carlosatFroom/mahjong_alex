@@ -17,7 +17,7 @@ except ImportError:
 class Config:
     # Groq configuration (production LLM provider)
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")  # Latest vision-capable model
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")  # Latest vision-capable model
     
     # Server configuration
     SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
