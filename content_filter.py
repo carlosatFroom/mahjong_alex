@@ -45,7 +45,7 @@ class ContentFilter:
         self.request_history = defaultdict(deque)  # IP -> deque of timestamps
         
         # Models for different stages
-        self.safety_model = "openai/gpt-oss-safeguard-20b"  # Vision-capable safety model
+        self.safety_model = "openai/gpt-oss-safeguard-20b"
         self.relevance_model = "openai/gpt-oss-20b"
         
         logger.info(f"Content filter initialized with blacklist threshold: {blacklist_threshold}")
@@ -86,10 +86,9 @@ class ContentFilter:
                self.request_history[client_ip][0] < cutoff):
             self.request_history[client_ip].popleft()
     
-    def check_safety(self, message: str, image_data: Optional[str] = None) -> FilterResult:
-        """Stage 1: Safety check using gpt-oss-safeguard-20b with vision support"""
+    def check_safety(self, message: str) -> FilterResult:
+        """Stage 1: Safety check using gpt-oss-safeguard-20b"""
         try:
-            # Build message for vision-capable guard
             safety_prompt = f"""You are a strict safety filter for a Mahjong tutoring website. This service is ONLY for Mahjong game strategy, rules, and gameplay questions.
 
 IMPORTANT: You must respond with EXACTLY "SAFE" or "UNSAFE" - no other text.
@@ -118,19 +117,8 @@ Answer with just "SAFE" or "UNSAFE":
 
 Message: {message}"""
 
-            # Prepare messages for Groq vision API
             messages = [{"role": "user", "content": safety_prompt}]
-            
-            # Add image if provided (same format as main chat)
-            if image_data:
-                messages = [{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": safety_prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
-                    ]
-                }]
-            
+
             response = self.groq_client.chat.completions.create(
                 model=self.safety_model,
                 messages=messages,
@@ -255,9 +243,9 @@ Answer (RELEVANT or IRRELEVANT):"""
                 tokens_used=0
             )
     
-    def filter_content(self, message: str, client_ip: str, image_data: Optional[str] = None) -> Tuple[bool, FilterResult]:
+    def filter_content(self, message: str, client_ip: str) -> Tuple[bool, FilterResult]:
         """
-        Main filtering pipeline with image support
+        Main filtering pipeline
         Returns: (allowed, filter_result)
         """
         # Check if IP is blacklisted first
@@ -271,8 +259,8 @@ Answer (RELEVANT or IRRELEVANT):"""
                 tokens_used=0
             )
         
-        # Stage 1: Safety check with image context
-        safety_result = self.check_safety(message, image_data)
+        # Stage 1: Safety check
+        safety_result = self.check_safety(message)
         if not safety_result.allowed:
             self.track_request(client_ip, is_violation=True)
             logger.warning(f"Safety violation from {client_ip}: {safety_result.reason}")
@@ -357,7 +345,7 @@ Answer (RELEVANT or IRRELEVANT):"""
             rep.blacklist_reason = f"Unblacklisted: {reason}"
             logger.info(f"Unblacklisted IP {client_ip}: {reason}")
 
-# Global content filter instance (will be initialized in main.py)
+# Global content filter instance
 content_filter: Optional[ContentFilter] = None
 
 def get_content_filter() -> ContentFilter:

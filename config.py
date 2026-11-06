@@ -1,55 +1,42 @@
 """
-Configuration management for Mahjong AI Tutor
-Handles environment-specific settings
+Configuration management for the Mahjong practice table
+All values come from environment variables (or a local .env file)
 """
 
 import os
-from typing import Optional
 
-# Try to load .env file if it exists
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    # dotenv not installed, rely on system environment variables
     pass
 
+
 class Config:
-    # Groq configuration (production LLM provider)
+    # Groq configuration (coach LLM provider)
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")  # Latest vision-capable model
-    
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+
     # Server configuration
-    SERVER_HOST: str = os.getenv("SERVER_HOST", "0.0.0.0")
+    SERVER_HOST: str = os.getenv("SERVER_HOST", "127.0.0.1")
     SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8080"))
-    
-    # Security configuration
-    MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "20"))
-    RATE_LIMIT_WINDOW: int = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-    
-    # CORS configuration
-    ALLOWED_ORIGINS: list = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
-        f"http://localhost:{SERVER_PORT}",
-        f"http://127.0.0.1:{SERVER_PORT}"
-    ]
-    
-    # Logging
+    SECRET_KEY: str = os.getenv("FLASK_SECRET_KEY", "")
+
+    # Game configuration
+    DB_PATH: str = os.getenv("GAME_DB_PATH", "games.sqlite3")
+    CARD_FILE: str = os.getenv("CARD_FILE", "cards/practice_card.json")
+    RULES_FILE: str = os.getenv("RULES_FILE", "rules/practice_rules.md")
+    COACH_MAX_MESSAGES: int = int(os.getenv("COACH_MAX_MESSAGES", "40"))
+    GAME_TTL_HOURS: int = int(os.getenv("GAME_TTL_HOURS", "24"))
+
+    # CORS configuration (comma-separated); empty means same-origin only
+    ALLOWED_ORIGINS: list = [o for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o]
+
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    
-    @classmethod
-    def for_production(cls, server_ip: str = "10.9.1.44") -> "Config":
-        """Create production configuration"""
-        config = cls()
-        config.ALLOWED_ORIGINS = [
-            f"http://{server_ip}:{config.SERVER_PORT}",
-            f"http://localhost:{config.SERVER_PORT}",
-            f"http://127.0.0.1:{config.SERVER_PORT}"
-        ]
-        return config
-    
+
     def __repr__(self):
         return (f"Config(groq_model={self.GROQ_MODEL}, "
                 f"server={self.SERVER_HOST}:{self.SERVER_PORT})")
 
-# Global config instance
+
 config = Config()
