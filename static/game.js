@@ -337,8 +337,7 @@
     const res = await api(`/api/game/${state.gameId}/coach`, { kind, text });
     wait.remove();
     if (!res.ok) { coachNote(res.data.error || "The coach is unavailable.", "engine"); return; }
-    if (res.data.facts) coachNote(res.data.facts, "engine", "engine facts");
-    const src = res.data.source === "engine" ? "engine facts" : "coach";
+    const src = res.data.source === "engine" ? "computed by the game engine" : "coach";
     coachNote(res.data.text, res.data.source === "engine" ? "engine" : "coach-msg", src);
     if (res.data.note) coachNote(res.data.note, "note");
   }

@@ -68,9 +68,10 @@ costly moves, using facts computed by the game engine (never guesses).
     discards, the card. It never reveals or uses bots' hidden tiles or the wall.
 16. Every hand name, tile count, and "tiles needed" figure the coach states comes from
     the engine, not from the LLM.
-17. The coach is capped at 40 LLM messages per game; existing per-IP rate limits stay.
-    When the cap is reached or the LLM provider fails, the Hint button still works and
-    shows the engine facts as plain text, without LLM wording.
+17. The coach is capped at 40 LLM messages (typed questions) per game; existing per-IP
+    rate limits stay. The Hint button is written entirely by the engine (suggestion, the
+    reason, and the concrete version of each closest hand), so it never uses the LLM and
+    always works.
 18. Free-text questions pass through the existing content filter (Mahjong topics only).
     Hint and automatic feedback do not (they carry no user text).
 

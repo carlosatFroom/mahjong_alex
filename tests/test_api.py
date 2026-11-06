@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 import time
 
 import pytest
@@ -85,17 +86,19 @@ def test_hint_without_llm_returns_engine_facts(client):
     r = client.post(f"/api/game/{gid}/coach", json={"kind": "hint"})
     assert r.status_code == 200
     assert r.json["source"] == "engine"
-    assert "tile(s) away" in r.json["text"] and "Suggested pass" in r.json["text"]
+    assert "away — need" in r.json["text"] and "Suggested pass" in r.json["text"]
+    assert "your version:" in r.json["text"]
 
 
-def test_coach_cap(client):
+def test_coach_cap_applies_to_questions_not_hints(client):
     gid, _ = start(client)
     for _ in range(3):
-        assert client.post(f"/api/game/{gid}/coach", json={"kind": "hint"}).status_code == 200
+        r = client.post(f"/api/game/{gid}/coach", json={"kind": "question", "text": "What is a kong?"})
+        assert r.status_code == 200
     r = client.post(f"/api/game/{gid}/coach", json={"kind": "question", "text": "What is a kong?"})
     assert r.status_code == 429 and "Hint button still works" in r.json["error"]
     r = client.post(f"/api/game/{gid}/coach", json={"kind": "hint"})
-    assert r.status_code == 200 and "limit reached" in r.json["note"]
+    assert r.status_code == 200 and r.json["source"] == "engine"
 
 
 def test_llm_failure_falls_back(app, client):
@@ -104,8 +107,8 @@ def test_llm_failure_falls_back(app, client):
     card = app.extensions["mahjong"]["card"]
     found = app.extensions["mahjong"]["store"].load(gid, _sid(client))
     game = Game.from_dict(card, found[0])
-    out = coach.reply(FakeProvider(fail=True), "sys", card, game.view_for(game.human), "hint")
-    assert out["source"] == "engine" and "tile(s) away" in out["text"]
+    out = coach.answer(FakeProvider(fail=True), "sys", card, game.view_for(game.human), "What now?")
+    assert out["source"] == "engine" and "away — need" in out["text"]
 
 
 def _sid(client):
@@ -122,7 +125,7 @@ def test_coach_payload_has_no_bot_concealed_tiles(app, client):
     hidden = {t for s in range(4) if s != game.human for t in game.hands[s]} - visible
     assert hidden
     provider = FakeProvider()
-    coach.reply(provider, "sys", card, view, "hint")
+    coach.answer(provider, "sys", card, view, "What should I pass?")
     state = provider.messages[0].split("ENGINE FACTS")[0]
     words = {w for line in state.splitlines() if not line.startswith("Tile codes")
              for w in line.replace(":", " ").split()}
@@ -153,3 +156,33 @@ def test_discard_feedback(client, app):
     r = client.post(f"/api/game/{gid}/action", json={"type": "discard", "tile": view["hand"][0]})
     assert r.status_code == 200
     assert "feedback" in r.json
+
+
+def test_hint_discard_reason_matches_closest_hands(card):
+    """The suggested discard must not be a tile every listed hand needs unless it says so."""
+    from mahjong.coach_facts import _uses, hint_facts
+    from mahjong.tiles import tile_name
+    from sim import autopilot
+    checked = 0
+    for seed in range(12):
+        g = Game.new(card, seed=seed, human=1)
+        g.advance()
+        while g.phase != "over" and checked < 40:
+            p = g.prompt()
+            if p["type"] == "discard":
+                view = g.view_for(g.human)
+                facts = hint_facts(card, view)
+                d = facts.get("suggest_discard")
+                if d:
+                    code = next(t for t in view["hand"] if tile_name(t) == d["tile"])
+                    have = Counter(t for t in view["hand"] if t != "J")
+                    users = [h for h in facts["closest_hands"] if _uses(h["_binding"], code, have)]
+                    if not users:
+                        assert d["why"].startswith("none")
+                    elif len(users) == len(facts["closest_hands"]):
+                        assert d["why"].startswith("every")
+                    else:
+                        assert d["why"].startswith("only hand")
+                    checked += 1
+            g.act(autopilot(g))
+    assert checked >= 20

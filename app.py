@@ -19,7 +19,7 @@ from config import config
 from content_filter import ContentFilter
 from llm_providers import get_llm_provider
 from mahjong.card import load_card
-from mahjong.coach_facts import facts_text, hint_facts, move_feedback
+from mahjong.coach_facts import move_feedback
 from mahjong.game import Game, GameError
 from store import GameStore
 
@@ -150,23 +150,21 @@ def create_app(overrides=None):
         if kind == "question" and not question:
             return jsonify({"error": "Type a question first."}), 400
 
-        if not store.bump_coach(game_id, settings["COACH_MAX_MESSAGES"]):
-            if kind == "hint":
-                return jsonify({"text": facts_text(hint_facts(card, view)), "source": "engine",
-                                "note": "Coach message limit reached for this game; showing engine facts."})
-            return jsonify({"error": f"The coach answers up to {settings['COACH_MAX_MESSAGES']} "
-                                     "messages per game. Start a new game to ask more; "
-                                     "the Hint button still works."}), 429
+        if kind == "hint":
+            return jsonify(coach.hint(card, view))
 
-        if kind == "question":
-            if content_filter is None:
-                return jsonify({"text": "The coach can't answer typed questions right now, "
-                                        "but the Hint button still works.", "source": "engine"})
-            allowed, result = content_filter.filter_content(question, security.get_client_ip(request))
-            if not allowed:
-                return jsonify({"error": "The coach only answers Mahjong questions.",
-                                "filter_stage": result.filter_stage}), 403
-        return jsonify(coach.reply(provider, system, card, view, kind, question))
+        if not store.bump_coach(game_id, settings["COACH_MAX_MESSAGES"]):
+            return jsonify({"error": f"The coach answers up to {settings['COACH_MAX_MESSAGES']} "
+                                     "questions per game. Start a new game to ask more; "
+                                     "the Hint button still works."}), 429
+        if content_filter is None:
+            return jsonify({"text": "The coach can't answer typed questions right now, "
+                                    "but the Hint button still works.", "source": "engine"})
+        allowed, result = content_filter.filter_content(question, security.get_client_ip(request))
+        if not allowed:
+            return jsonify({"error": "The coach only answers Mahjong questions.",
+                            "filter_stage": result.filter_stage}), 403
+        return jsonify(coach.answer(provider, system, card, view, question))
 
     @app.route("/api/stats")
     def get_stats():

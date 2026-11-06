@@ -4,7 +4,8 @@ import json
 from dataclasses import dataclass
 from itertools import permutations
 
-from .tiles import DRAGON_OF_SUIT, SOAP, SUITS, WINDS, FLOWER, tile_name
+from .tiles import (DRAGON_NAMES, DRAGON_OF_SUIT, FLOWER, SOAP, SUIT_NAMES, SUITS, WINDS,
+                    is_number)
 
 SUIT_VARS = ("A", "B", "C")
 
@@ -36,7 +37,25 @@ class Binding:
     groups: tuple
 
     def describe(self):
-        return ", ".join(f"{n}× {tile_name(code)}" for code, n in self.groups)
+        """This version of the hand in concrete tiles, e.g. 'FF 555 Crak 666 Bam'."""
+        parts, run_suit = [], None
+        for code, n in self.groups:
+            if n == 1 and is_number(code) and run_suit == code[1]:
+                digits, suit = parts[-1].split(" ")
+                parts[-1] = f"{digits}{code[0]} {suit}"  # singles in a row: '123 Bam'
+                continue
+            parts.append(group_label(code, n))
+            run_suit = code[1] if n == 1 and is_number(code) else None
+        return " ".join(parts)
+
+
+def group_label(code, n):
+    if is_number(code):
+        return f"{code[0] * n} {SUIT_NAMES[code[1]]}"
+    if code in DRAGON_NAMES:
+        short = {"GD": "Green", "RD": "Red", "WD": "Soap"}[code]
+        return f"{'D' * n}({short})"
+    return code * n
 
 
 class CardError(ValueError):
@@ -75,10 +94,11 @@ def _expand(hand, variant_index, variant, x_values):
             codes = [_resolve(t, suits, x) for t in templates]
             if None in codes or len(set(codes)) != len(codes):
                 continue
-            groups = tuple(sorted(zip(codes, (g[1] for g in variant))))
-            if groups in seen:
+            groups = tuple(zip(codes, (g[1] for g in variant)))  # card order, for display
+            key = tuple(sorted(groups))
+            if key in seen:
                 continue
-            seen.add(groups)
+            seen.add(key)
             yield Binding(hand, variant_index, groups)
 
 

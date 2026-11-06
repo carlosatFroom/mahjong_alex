@@ -152,3 +152,9 @@ Rejected:
   (CVE-2026-28684); pinned to 3.1.3 / 1.2.2, re-scan clean.
 - Brand: woodlandsmahjongsociety.com serves a bot-verification page to automated
   clients, so `brand.css` and `logo.svg` are clearly marked placeholders.
+- 2026-11-06, after user testing: LLM-phrased hints misreported the rack and contradicted
+  the engine's suggestion (the rack it received was correct; the model reasoned badly).
+  Hints are now written entirely by the engine, with the reason for the suggestion and
+  each closest hand shown in concrete tiles ("your version: FF 345 Dot 666 Bam ...").
+  The LLM answers typed questions only, now on `openai/gpt-oss-120b`, and the 40-message
+  cap counts questions only.

@@ -1,7 +1,5 @@
-"""Coach: turns engine facts into short, friendly advice with the LLM.
-
-The LLM never computes anything: hand names, tile counts and suggestions come
-from mahjong.coach_facts. If the LLM fails, callers fall back to facts_text().
+"""Coach. Hints are written by the engine (mahjong.coach_facts); the LLM only
+answers typed questions, grounded in the same engine facts.
 """
 
 import logging
@@ -21,11 +19,12 @@ The card in use:
 {card}
 
 How to coach:
-- Be brief (2 to 4 short sentences), warm, and concrete.
-- ENGINE FACTS are computed by the game engine and are always correct, and the player \
-already sees them on screen. Do not repeat the tile lists. Explain WHY the suggestion makes \
-sense, and never contradict it. Never invent hand names, tile counts, or tiles needed; only \
-mention tiles that appear in the player's rack or the ENGINE FACTS.
+- Be brief (2 to 5 short sentences), warm, and concrete.
+- ENGINE FACTS are computed by the game engine and are always correct. Never contradict \
+them. Never state which tiles the player holds, needs, or should pass/discard unless it is \
+written in the ENGINE FACTS or the player rack; do not count tiles yourself.
+- American Mahjong has no runs/chows or straights; groups are pungs, kongs, quints, \
+singles and pairs exactly as printed on the card.
 - You only know what the player can see: their own rack, exposures, and discards. Never \
 guess what other players hold.
 - Explain the *why* (e.g. flexibility, joker use, what others have exposed) so the player learns.
@@ -58,20 +57,23 @@ def _state_summary(view):
     ])
 
 
-def build_message(card, view, kind, question=None):
+def build_message(card, view, question):
     """Return (user_message, facts). Only the human's view is used."""
     facts = hint_facts(card, view)
-    ask = {"hint": "Give the player a hint for their current decision.",
-           "question": f"The player asks: {question}"}[kind]
     msg = (f"GAME STATE\n{_state_summary(view)}\n\n"
-           f"ENGINE FACTS\n{facts_text(facts)}\n\n{ask}")
+           f"ENGINE FACTS (correct; the player can see them)\n{facts_text(facts)}\n\n"
+           f"The player asks: {question}")
     return msg, facts
 
 
-def reply(provider, system, card, view, kind, question=None):
-    """Ask the LLM; on any provider failure return the plain engine facts."""
-    message, facts = build_message(card, view, kind, question)
-    shown = facts_text(facts) if kind == "hint" else None
+def hint(card, view):
+    """The Hint button: written entirely by the engine, so it can't misread the rack."""
+    return {"text": facts_text(hint_facts(card, view)), "source": "engine"}
+
+
+def answer(provider, system, card, view, question):
+    """Answer a typed question with the LLM; fall back to the engine hint on failure."""
+    message, facts = build_message(card, view, question)
     if provider is None:
         return {"text": facts_text(facts), "source": "engine"}
     try:
@@ -82,4 +84,4 @@ def reply(provider, system, card, view, kind, question=None):
     text = (out.get("content") or "").strip()
     if not text:
         return {"text": facts_text(facts), "source": "engine"}
-    return {"text": text, "facts": shown, "source": "llm", "tokens": out["total_tokens"]}
+    return {"text": text, "source": "llm", "tokens": out["total_tokens"]}
