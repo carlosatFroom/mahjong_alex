@@ -2,7 +2,7 @@
 
 from collections import Counter
 
-from .matcher import Holding, best_per_hand, choose_discards, missing_tiles
+from .matcher import Holding, best_per_hand, choose_discards, discard_values, missing_tiles
 from .tiles import tile_name
 
 VIEW_KEYS_FOR_COACH = ("seat_wind", "names", "hand", "exposures", "discards", "wall_count",
@@ -105,19 +105,25 @@ def _call_advice(hands, tile):
 
 
 def move_feedback(card, before_view, tile):
-    """Short engine-only note when a discard broke one of the closest hands."""
+    """Engine-only note, shown only when the discard was worse than the best available one.
+
+    Uses the same scoring as the Hint, so following the hint never triggers it.
+    """
     before = _holding(before_view)
-    have, jokers = before.counts()
-    top = best_per_hand(card, before, _visible(before_view), 3)
-    broke = []
-    for _, b in top:
-        if any(code == tile for code, _ in b.groups) and have.get(tile, 0) <= dict(b.groups)[tile]:
-            broke.append(b.hand.display)
+    visible = _visible(before_view)
+    values = discard_values(card, before, visible)
+    if tile not in values:
+        return None
+    best = max(sorted(values), key=lambda t: values[t])
+    if values[tile] >= values[best] - 1e-9:
+        return None
+    have, _ = before.counts()
+    top = best_per_hand(card, before, visible, 3)
+    broke = [b.hand.display for _, b in top if _uses(b, tile, have)]
     if not broke:
         return None
-    hands = "; ".join(broke)
     return (f"That {tile_name(tile)} was part of {len(broke)} of your {len(top)} closest "
-            f"hand(s): {hands}.")
+            f"hand(s): {'; '.join(broke)}. {tile_name(best)} would have cost you less.")
 
 
 def facts_text(facts):

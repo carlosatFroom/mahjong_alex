@@ -158,3 +158,6 @@ Rejected:
   each closest hand shown in concrete tiles ("your version: FF 345 Dot 666 Bam ...").
   The LLM answers typed questions only, now on `openai/gpt-oss-120b`, and the 40-message
   cap counts questions only.
+- 2026-11-06: automatic discard feedback fired even when the player discarded the tile the
+  Hint suggested. It now uses the same scoring as the Hint and only appears when the
+  discard was worse than the best option, naming the better tile.
