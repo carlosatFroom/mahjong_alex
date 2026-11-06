@@ -1,237 +1,198 @@
 #!/usr/bin/env python3
 """
-Flask API for Mahjong Tutor
-Provides endpoints for chat functionality with content filtering
+Flask app for the Woodlands Mahjong Society practice table:
+serves the game page, the game API, and the coach.
 """
 
-import os
-import json
 import logging
-from datetime import datetime
-from flask import Flask, request, jsonify
+import os
+import secrets
+import uuid
+from datetime import datetime, timezone
+
+from flask import Flask, jsonify, request, send_from_directory, session
 from flask_cors import CORS
-from groq import Groq
+
+import coach
+import security
+from config import config
 from content_filter import ContentFilter
+from llm_providers import get_llm_provider
+from mahjong.card import load_card
+from mahjong.coach_facts import facts_text, hint_facts, move_feedback
+from mahjong.game import Game, GameError
+from store import GameStore
 
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+ROOT = os.path.dirname(os.path.abspath(__file__))
+DIFFICULTIES = ("easy", "normal")
+MAX_QUESTION_CHARS = 500
 
-# Global variables
-content_filter = None
-groq_client = None
 
-def init_services():
-    """Initialize AI services"""
-    global content_filter, groq_client
-    
-    groq_api_key = os.getenv('GROQ_API_KEY')
-    if not groq_api_key:
-        raise ValueError("GROQ_API_KEY environment variable not set")
-    
-    content_filter = ContentFilter(groq_api_key)
-    groq_client = Groq(api_key=groq_api_key)
-    
-    logger.info("Services initialized successfully")
+def create_app(overrides=None):
+    settings = {
+        "DB_PATH": config.DB_PATH, "CARD_FILE": config.CARD_FILE, "RULES_FILE": config.RULES_FILE,
+        "COACH_MAX_MESSAGES": config.COACH_MAX_MESSAGES, "GAME_TTL_HOURS": config.GAME_TTL_HOURS,
+        "GROQ_API_KEY": config.GROQ_API_KEY, "GROQ_MODEL": config.GROQ_MODEL,
+    }
+    settings.update(overrides or {})
 
-def get_client_ip():
-    """Get client IP address from request"""
-    # Check for forwarded headers first (common with proxies/load balancers)
-    if request.headers.get('X-Forwarded-For'):
-        return request.headers['X-Forwarded-For'].split(',')[0].strip()
-    elif request.headers.get('X-Real-IP'):
-        return request.headers['X-Real-IP']
+    app = Flask(__name__, static_folder=os.path.join(ROOT, "static"), static_url_path="/static")
+    app.secret_key = config.SECRET_KEY or secrets.token_hex(32)
+    if not config.SECRET_KEY:
+        logger.warning("FLASK_SECRET_KEY not set; sessions reset when the server restarts.")
+    app.config["SESSION_COOKIE_SAMESITE"] = config.COOKIE_SAMESITE
+    app.config["SESSION_COOKIE_SECURE"] = config.COOKIE_SAMESITE == "None"
+    if config.ALLOWED_ORIGINS:
+        CORS(app, origins=config.ALLOWED_ORIGINS, supports_credentials=True)
+
+    card = load_card(os.path.join(ROOT, settings["CARD_FILE"]))
+    with open(os.path.join(ROOT, settings["RULES_FILE"]), encoding="utf-8") as f:
+        system = coach.system_prompt(card, f.read())
+    store = GameStore(settings["DB_PATH"], settings["GAME_TTL_HOURS"])
+
+    provider = content_filter = None
+    if settings["GROQ_API_KEY"]:
+        provider = get_llm_provider("groq", api_key=settings["GROQ_API_KEY"], model=settings["GROQ_MODEL"])
+        content_filter = ContentFilter(settings["GROQ_API_KEY"])
     else:
-        return request.remote_addr
+        logger.warning("GROQ_API_KEY not set; the coach will answer with engine facts only.")
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'service': 'mahjong-tutor'
-    })
+    app.extensions["mahjong"] = {"card": card, "store": store, "provider": provider}
 
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    """Main chat endpoint"""
-    try:
-        # Get request data
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-        
-        message = data.get('message', '').strip()
-        if not message:
-            return jsonify({'error': 'Message is required'}), 400
-        
-        # Get client IP
-        client_ip = get_client_ip()
-        
-        # Handle image data if provided
-        image_data = data.get('image')
-        
-        # Filter content
-        allowed, filter_result = content_filter.filter_content(message, client_ip, image_data)
-        
-        if not allowed:
-            logger.warning(f"Content blocked from {client_ip}: {filter_result.reason}")
-            return jsonify({
-                'error': 'Content not allowed',
-                'reason': filter_result.reason,
-                'filter_stage': filter_result.filter_stage
-            }), 403
-        
-        # Generate response
-        response = generate_mahjong_response(message, image_data)
-        
-        # Log successful interaction
-        logger.info(f"Successful chat from {client_ip}, tokens: {filter_result.tokens_used}")
-        
-        return jsonify({
-            'response': response,
-            'timestamp': datetime.utcnow().isoformat(),
-            'tokens_used': filter_result.tokens_used
-        })
-        
-    except Exception as e:
-        logger.error(f"Chat error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+    def session_id():
+        if "sid" not in session:
+            session["sid"] = uuid.uuid4().hex
+            session.permanent = True
+        return session["sid"]
 
-def generate_mahjong_response(message: str, image_data: str = None) -> str:
-    """Generate response using Groq API"""
-    
-    # System prompt for Mahjong tutor
-#     system_prompt = """You are a helpful Mahjong tutor and strategy advisor. You specialize in:
+    def load_game(game_id):
+        found = store.load(game_id, session_id())
+        if not found:
+            return None
+        return Game.from_dict(card, found[0])
 
-# 1. Mahjong tile strategy and optimal play
-# 2. Hand analysis and tile discarding decisions
-# 3. Scoring rules and game mechanics
-# 4. Tournament strategies and advanced techniques
+    def game_payload(game_id, game, **extra):
+        return jsonify({"game_id": game_id, "view": game.view_for(game.human), **extra})
 
-# Key guidelines:
-# - Focus exclusively on Mahjong-related topics
-# - Provide clear, actionable advice
-# - Explain your reasoning for strategy recommendations
-# - Be encouraging and educational
-# - If shown an image of tiles, analyze the position and suggest optimal moves
-# - If shown a card, analyze the card and suggest optimal moves
-# Remember: You should only discuss Mahjong gameplay, rules, and strategy."""
-    with open('year2025.txt', 'r') as file:
-        card_info = file.read()
-    system_prompt = f"""You are an expert Mahjong tutor specializing in American Mahjong using the 2025 National Mah Jongg League (NMJL) card. Your role is to help players improve their skills by providing strategic guidance, hand analysis, and constructive feedback.
+    @app.before_request
+    def guard():
+        blocked = security.check_request(request)
+        if blocked:
+            return jsonify(blocked[0]), blocked[1]
+        return None
 
-Your expertise includes:
+    @app.route("/")
+    def index():
+        return send_from_directory(app.static_folder, "index.html")
 
-    1. Hand Categories Knowledge: You have memorized all categories from the 2025 NMJL card:
-        2025 hands
-        2468 (evens)
-        Any Like Numbers
-        Quints
-        Consecutive Runs
-        13579 (odds)
-        Winds and Dragons
-        369
-        Singles and Pairs
+    @app.route("/api/health")
+    def health():
+        return jsonify({"status": "healthy", "service": "mahjong-practice-table",
+                        "coach": "llm" if provider else "engine-only",
+                        "timestamp": datetime.now(timezone.utc).isoformat()})
 
-    2. Strategic Guidance: You can:
-        Analyze tiles to identify potential winning hands
-        Recommend which hand(s) to pursue based on current tiles
-        Explain when to switch between hands
-        Advise on defensive play to prevent opponents from winning
-        Guide Charleston strategy and tile passing decisions
-        Teach proper calling (exposure) timing
+    @app.route("/api/card")
+    def get_card():
+        return jsonify({"name": card.name, "hands": card.to_json()})
 
-    3. Hand Values: You understand the point values (X=exposed, C=concealed) and can explain risk/reward tradeoffs between pursuing higher-value hands versus more achievable lower-value hands.
+    @app.route("/api/game", methods=["POST"])
+    def new_game():
+        data = request.get_json(silent=True) or {}
+        difficulty = data.get("difficulty", "normal")
+        if difficulty not in DIFFICULTIES:
+            return jsonify({"error": "Difficulty must be easy or normal."}), 400
+        game = Game.new(card, difficulty=difficulty)
+        game.advance()
+        game_id = uuid.uuid4().hex
+        store.save(game_id, session_id(), game.to_dict())
+        return game_payload(game_id, game)
 
-    4. Teaching Approach:
-        Break down complex hands into understandable components
-        Use clear notation (F=Flower, D=Dragon, N/E/W/S=Winds)
-        Provide examples using actual tile combinations
-        Explain why certain decisions are optimal
-        Identify common mistakes and how to avoid them
+    @app.route("/api/game/<game_id>")
+    def get_game(game_id):
+        game = load_game(game_id)
+        if not game:
+            return jsonify({"error": "Game not found or expired."}), 404
+        return game_payload(game_id, game)
 
-    5. Adaptive Feedback: Tailor advice to the player's skill level, from beginner (focusing on basic hand recognition) to advanced (discussing probability, defensive strategies, and reading opponents).
+    @app.route("/api/game/<game_id>/action", methods=["POST"])
+    def act(game_id):
+        game = load_game(game_id)
+        if not game:
+            return jsonify({"error": "Game not found or expired."}), 404
+        action = request.get_json(silent=True) or {}
+        before = game.view_for(game.human)
+        try:
+            game.act(action)
+        except GameError as e:
+            return jsonify({"error": str(e)}), 400
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "Malformed action."}), 400
+        feedback = None
+        if action.get("type") == "discard" and not before.get("dead"):
+            feedback = move_feedback(card, before, action.get("tile"))
+        store.save(game_id, session_id(), game.to_dict())
+        return game_payload(game_id, game, feedback=feedback)
 
-When analyzing hands or providing feedback, always reference specific hands from the 2025 card, explain the requirements clearly, and help players understand both offensive and defensive considerations. Use encouraging language while providing constructive criticism.
-And the 2025 card information is as follows:
-{card_info}"""
-    # Load environment variables
-    load_dotenv()
+    @app.route("/api/game/<game_id>/coach", methods=["POST"])
+    def ask_coach(game_id):
+        game = load_game(game_id)
+        if not game:
+            return jsonify({"error": "Game not found or expired."}), 404
+        data = request.get_json(silent=True) or {}
+        kind = data.get("kind")
+        if kind not in ("hint", "question"):
+            return jsonify({"error": "kind must be hint or question"}), 400
+        view = game.view_for(game.human)
+        question = (data.get("text") or "").strip()[:MAX_QUESTION_CHARS]
+        if kind == "question" and not question:
+            return jsonify({"error": "Type a question first."}), 400
 
-    # Get API key from environment variables
-    groq_api_key = os.getenv('GROQ_API_KEY')
-    if not groq_api_key:
-        raise ValueError("GROQ_API_KEY environment variable not set")
-    # Prepare messages
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message}
-    ]
-    
-    # Add image if provided
-    if image_data:
-        messages[1] = {
-            "role": "user", 
-            "content": [
-                {"type": "text", "text": message},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
-            ]
-        }
-    
-    # Generate response
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=messages,
-        max_tokens=1000,
-        temperature=0.7
-    )
-    
-    return response.choices[0].message.content
+        if not store.bump_coach(game_id, settings["COACH_MAX_MESSAGES"]):
+            if kind == "hint":
+                return jsonify({"text": facts_text(hint_facts(card, view)), "source": "engine",
+                                "note": "Coach message limit reached for this game; showing engine facts."})
+            return jsonify({"error": f"The coach answers up to {settings['COACH_MAX_MESSAGES']} "
+                                     "messages per game. Start a new game to ask more; "
+                                     "the Hint button still works."}), 429
 
-@app.route('/api/stats', methods=['GET'])
-def get_stats():
-    """Get system statistics"""
-    try:
-        stats = content_filter.get_system_stats()
-        return jsonify(stats)
-    except Exception as e:
-        logger.error(f"Stats error: {str(e)}")
-        return jsonify({'error': 'Unable to retrieve stats'}), 500
+        if kind == "question":
+            if content_filter is None:
+                return jsonify({"text": "The coach can't answer typed questions right now, "
+                                        "but the Hint button still works.", "source": "engine"})
+            allowed, result = content_filter.filter_content(question, security.get_client_ip(request))
+            if not allowed:
+                return jsonify({"error": "The coach only answers Mahjong questions.",
+                                "filter_stage": result.filter_stage}), 403
+        return jsonify(coach.reply(provider, system, card, view, kind, question))
 
-@app.route('/api/ip-stats/<ip>', methods=['GET'])
-def get_ip_stats(ip):
-    """Get statistics for a specific IP"""
-    try:
-        stats = content_filter.get_ip_stats(ip)
-        return jsonify(stats)
-    except Exception as e:
-        logger.error(f"IP stats error: {str(e)}")
-        return jsonify({'error': 'Unable to retrieve IP stats'}), 500
+    @app.route("/api/stats")
+    def get_stats():
+        if content_filter is None:
+            return jsonify({"error": "Content filter not configured"}), 503
+        return jsonify(content_filter.get_system_stats())
 
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Endpoint not found'}), 404
+    @app.route("/api/ip-stats/<ip>")
+    def get_ip_stats(ip):
+        if content_filter is None:
+            return jsonify({"error": "Content filter not configured"}), 503
+        return jsonify(content_filter.get_ip_stats(ip))
 
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({"error": "Not found"}), 404
 
-if __name__ == '__main__':
-    try:
-        init_services()
-        host = os.getenv('SERVER_HOST', '0.0.0.0')
-        port = int(os.getenv('SERVER_PORT', 5000))
-        debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-        
-        logger.info(f"Starting Mahjong Tutor API on port {port}")
-        app.run(host=host, port=port, debug=debug)
-        
-    except Exception as e:
-        logger.error(f"Failed to start application: {str(e)}")
-        raise
+    @app.errorhandler(500)
+    def internal_error(error):
+        return jsonify({"error": "Internal server error"}), 500
+
+    return app
+
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(host=config.SERVER_HOST, port=config.SERVER_PORT,
+            debug=os.getenv("FLASK_DEBUG", "False").lower() == "true")

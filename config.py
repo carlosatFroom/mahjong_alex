@@ -21,6 +21,8 @@ class Config:
     SERVER_HOST: str = os.getenv("SERVER_HOST", "127.0.0.1")
     SERVER_PORT: int = int(os.getenv("SERVER_PORT", "8080"))
     SECRET_KEY: str = os.getenv("FLASK_SECRET_KEY", "")
+    # "Lax" for a direct link; "None" (HTTPS only) when embedded in another site's iframe
+    COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "Lax")
 
     # Game configuration
     DB_PATH: str = os.getenv("GAME_DB_PATH", "games.sqlite3")
