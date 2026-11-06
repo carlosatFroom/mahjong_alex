@@ -1,5 +1,5 @@
 # Mahjong Practice Table (American rules, with AI coach)
-Status: approved    ·    Date: 2026-11-05
+Status: implemented    ·    Date: 2026-11-05
 
 ## Problem
 The current product is a chatbot that asks players to photograph their tiles and type

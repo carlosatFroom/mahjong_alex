@@ -1,0 +1,23 @@
+/* Woodlands Mahjong Society brand tokens.
+   PLACEHOLDER values: replace with the official colors and fonts from Alex.
+   The logo lives in static/brand/logo.svg (swap that file for the official one). */
+:root {
+  --brand-primary: #2f5d50;      /* woodland green */
+  --brand-primary-dark: #1e3d34;
+  --brand-accent: #c9a24a;       /* gold */
+  --brand-accent-soft: #efe2bd;
+  --brand-bg: #f6f1e7;           /* cream */
+  --brand-surface: #fffdf8;
+  --brand-ink: #24302c;
+  --brand-muted: #6b746f;
+  --brand-felt: #3d6b5c;         /* table felt */
+  --brand-felt-dark: #2c5145;
+
+  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-body: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --tile-face: #fbf8f0;
+  --tile-edge: #cfc6b1;
+  --tile-back: #d9c48f;
+  --tile-back-edge: #9c8445;
+}

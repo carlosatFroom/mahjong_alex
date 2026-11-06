@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Woodlands Mahjong Society (placeholder logo)">
+  <!-- PLACEHOLDER mark: replace this file with the official Society logo. -->
+  <circle cx="32" cy="32" r="30" fill="#2f5d50"/>
+  <path d="M32 12 L44 32 H37 L46 46 H18 L27 32 H20 Z" fill="#c9a24a"/>
+  <rect x="29.5" y="46" width="5" height="7" fill="#c9a24a"/>
+</svg>

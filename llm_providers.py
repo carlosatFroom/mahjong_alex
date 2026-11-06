@@ -38,7 +38,8 @@ class GroqProvider(LLMProvider):
                     {"role": "user", "content": message},
                 ],
                 temperature=0.4,
-                max_tokens=700,
+                max_tokens=2000,
+                reasoning_effort="low",
             )
         except Exception as e:
             logger.error(f"Groq API error: {e}")

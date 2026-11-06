@@ -1,1 +1,109 @@
-<!doctype html><title>placeholder</title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Practice Table · Woodlands Mahjong Society</title>
+  <link rel="icon" href="/static/brand/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/brand.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="https://woodlandsmahjongsociety.com" target="_blank" rel="noopener">
+      <img src="/static/brand/logo.svg" alt="" class="logo">
+      <span class="brand-text"><span class="brand-name">Woodlands Mahjong Society</span>
+        <span class="brand-sub">Practice Table · American rules</span></span>
+    </a>
+    <nav class="top-actions">
+      <button class="ghost" id="btn-card">Card</button>
+      <button class="ghost" id="btn-rules">Rules</button>
+      <button class="primary" id="btn-new">New game</button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="table" id="table" aria-label="Mahjong table">
+      <div class="seat seat-across" id="seat-across"></div>
+      <div class="seat seat-left" id="seat-left"></div>
+      <div class="seat seat-right" id="seat-right"></div>
+      <div class="center" id="center">
+        <div class="status" id="status" aria-live="polite"></div>
+        <div class="discards" id="discards"></div>
+        <ol class="log" id="log" aria-label="Table log"></ol>
+      </div>
+      <div class="me" id="me">
+        <div class="me-head"><span id="me-name"></span><span class="exposures" id="me-exposures"></span></div>
+        <div class="rack" id="rack" role="group" aria-label="Your tiles"></div>
+        <div class="actions" id="actions"></div>
+      </div>
+    </section>
+
+    <aside class="coach" aria-label="Coach">
+      <div class="coach-head">
+        <h2>Coach</h2>
+        <span class="coach-count" id="coach-count"></span>
+      </div>
+      <div class="coach-log" id="coach-log" aria-live="polite"></div>
+      <div class="coach-controls">
+        <button class="primary wide" id="btn-hint">Hint for this move</button>
+        <form id="coach-form" class="coach-form">
+          <input id="coach-input" maxlength="500" placeholder="Ask about rules or strategy…" autocomplete="off">
+          <button type="submit" class="ghost">Ask</button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    Woodlands Mahjong Society practice table ·
+    <a href="https://woodlandsmahjongsociety.com" target="_blank" rel="noopener">woodlandsmahjongsociety.com</a> ·
+    <a href="https://instagram.com/woodlandsmahjongsociety" target="_blank" rel="noopener">Instagram</a>
+  </footer>
+
+  <dialog id="dlg-new">
+    <form method="dialog" class="dialog">
+      <h2>New game</h2>
+      <p>You play one seat; three computer players take the others.</p>
+      <fieldset>
+        <legend>Opponents</legend>
+        <label><input type="radio" name="difficulty" value="easy"> Easy — they pick one hand and stick to it</label>
+        <label><input type="radio" name="difficulty" value="normal" checked> Normal — they adapt, call tiles, and swap jokers</label>
+      </fieldset>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">Cancel</button>
+        <button value="start" class="primary">Deal</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-card">
+    <div class="dialog wide-dialog">
+      <h2 id="card-title">Practice card</h2>
+      <p class="muted">X = exposures allowed · C = concealed. Values are points.</p>
+      <div id="card-list" class="card-list"></div>
+      <div class="dialog-actions"><button class="primary" data-close>Close</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-rules">
+    <div class="dialog wide-dialog">
+      <h2>How this table plays</h2>
+      <ul class="rules">
+        <li><b>Charleston:</b> pass 3 right, across, left. Then everyone may agree to a second Charleston (left, across, right). The last pass of each may be blind. Finish with an optional courtesy pass across.</li>
+        <li><b>Turns:</b> draw, then discard. East starts with 14 tiles and discards first.</li>
+        <li><b>Calling:</b> take a discard to expose a pung, kong or quint, or to win. Mahjong beats an exposure; otherwise the next player in turn wins the tile.</li>
+        <li><b>Jokers:</b> only in groups of 3 or more, never in singles or pairs, never passed. A discarded joker is dead. On your turn you may swap a real tile for a joker in any exposure.</li>
+        <li><b>Winning:</b> your 14 tiles must match one hand on the card exactly. Concealed (C) hands allow no exposures.</li>
+        <li><b>Dead hand:</b> if your exposures fit no hand on the card, you play on but cannot win.</li>
+        <li><b>Scoring:</b> discarder pays double; self-drawn, everyone pays double; jokerless doubles again (except Singles and Pairs).</li>
+      </ul>
+      <div class="dialog-actions"><button class="primary" data-close>Close</button></div>
+    </div>
+  </dialog>
+
+  <script src="/static/config.js"></script>
+  <script src="/static/tiles.js"></script>
+  <script src="/static/game.js"></script>
+</body>
+</html>

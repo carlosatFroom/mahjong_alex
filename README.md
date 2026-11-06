@@ -1,185 +1,63 @@
-# 🀄 Mahjong AI Tutor
+# 🀄 Woodlands Mahjong Society — Practice Table
 
-An AI-powered Mahjong tutor that analyzes board states through images and provides strategic guidance to help players improve their skills. Built with FastAPI and Ollama for cost-effective, self-hosted AI tutoring.
+A web page where a player who has learned American Mahjong plays full games against
+three computer opponents, with a coach panel beside the table. The coach answers rules
+questions, gives hints, and flags costly discards. Everything it states about hands and
+tiles comes from the game engine, not from the LLM.
 
-## Features
+Spec: [`specs/01-mahjong-practice-game/`](specs/01-mahjong-practice-game/PRODUCT.md).
 
-- 📸 **Image Analysis**: Upload photos of your Mahjong tiles for AI analysis
-- 🎯 **Strategic Advice**: Get personalized move recommendations with explanations
-- 💬 **Chat Interface**: Interactive web-based chat for seamless tutoring experience
-- 🤖 **Vision AI**: Uses advanced vision models to understand tile arrangements
-- 💰 **Cost-Effective**: Self-hosted solution using Ollama (no API costs)
+## What's in the game
+- 152 tiles, Charleston (first, optional second, blind passes, courtesy), calling with
+  priority, exposures, jokers, joker swaps, dead hands, wall games, scoring.
+- An **original practice card** (`cards/practice_card.json`, 34 hands) with the same
+  categories as a real card. The NMJL card is copyrighted and is not served.
+- Easy / Normal bots that only see what a player at the table could see.
+- Coach: Hint button (engine facts + a short LLM explanation), typed questions (filtered
+  to Mahjong topics), automatic notes when a discard breaks one of your closest hands.
+  Capped at 40 coach messages per game; without an LLM, hints still work.
 
-## Prerequisites
-
-- **macOS** (tested on macOS 14+)
-- **Python 3.8+**
-- **Ollama** (for running AI models locally)
-
-## Installation
-
-### 1. Install Ollama
-
-First, install Ollama on your macOS system:
-
+## Run locally
 ```bash
-# Using Homebrew (recommended)
-brew install ollama
-
-# Or download directly from ollama.com
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-After installation, start the Ollama service:
-
-```bash
-# Start Ollama (it will run on localhost:11434)
-ollama serve
-```
-
-### 2. Download Required AI Model
-
-Download the vision-capable model needed for image analysis:
-
-```bash
-# This will download the MiniCPM-V model (~5.5GB)
-ollama pull minicpm-v:latest
-```
-
-**Note**: The model download may take 10-15 minutes depending on your internet connection.
-
-### 3. Clone and Set Up the Project
-
-```bash
-# Clone the repository
-git clone https://github.com/carlosatFroom/mahjong_alex.git
-cd mahjong_alex
-
-# Create a Python virtual environment
 python3 -m venv venv
-source venv/bin/activate
-
-# Install Python dependencies
-pip install -r requirements.txt
+venv/bin/pip install -r requirements-dev.txt
+cp .env.example .env           # fill in GROQ_API_KEY and FLASK_SECRET_KEY
+venv/bin/flask --app app run --port 8080
 ```
+Open http://127.0.0.1:8080. With no `GROQ_API_KEY`, the coach answers with engine facts only.
 
-### 4. Verify Installation
-
-Check that Ollama is running and the model is available:
-
+## Tests and simulation
 ```bash
-# Test Ollama connection
-curl http://localhost:11434/api/tags
-
-# You should see minicpm-v:latest in the response
+venv/bin/python -m pytest -q                              # engine, API and coach tests
+venv/bin/python sim.py --games 1000 --difficulty normal   # bot-only games + invariant checks
 ```
 
-## Usage
+## Layout
+| Path | What |
+|---|---|
+| `mahjong/` | Engine: tiles, card loader, hand matcher, game state machine, bots, coach facts |
+| `cards/practice_card.json` | The practice card (data; swap with `CARD_FILE`) |
+| `rules/practice_rules.md` | Rules summary used by the coach prompt |
+| `app.py` | Flask app: page, game API, coach endpoint |
+| `coach.py` | Coach prompt and LLM call with engine-facts fallback |
+| `store.py` | SQLite storage of games (24 h expiry, anonymous session cookie) |
+| `static/` | Page, styles, SVG tiles, `brand.css` + `brand/logo.svg` (branding), `config.js` (tile skin) |
+| `content_filter.py`, `security.py` | Mahjong-only question filter, request filtering and rate limits |
 
-### 1. Start the Application
+## Branding and tiles
+- `static/brand.css` and `static/brand/logo.svg` hold **placeholder** Society colors and
+  mark. Replace them with the official files; nothing else needs to change.
+- Tiles are drawn as SVG in code. To use the Society's Joy tile art, add one image per tile
+  code to `static/skins/joy/` and set `tileSkin` in `static/config.js`.
 
-```bash
-# Make sure you're in the project directory with venv activated
-source venv/bin/activate
-python main.py
-```
+## API
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET | `/api/card` | Card listing |
+| POST | `/api/game` | New game `{difficulty: "easy"\|"normal"}` |
+| GET | `/api/game/<id>` | Current view (refresh) |
+| POST | `/api/game/<id>/action` | Human action (`pass`, `vote`, `courtesy`, `discard`, `swap`, `call`, `pass_call`, `mahjong`) |
+| POST | `/api/game/<id>/coach` | `{kind: "hint"}` or `{kind: "question", text}` |
 
-The server will start on `http://localhost:8080`
-
-### 2. Use the Chat Interface
-
-1. Open your web browser and go to `http://localhost:8080`
-2. Take a photo of your Mahjong tiles and board state
-3. Upload the image using the 📷 button
-4. Ask questions like:
-   - "What should I discard next?"
-   - "How can I improve this hand?"
-   - "What's my best winning strategy?"
-5. Get AI-powered strategic advice with explanations
-
-### 3. Example Queries
-
-- **Strategic Analysis**: "Analyze my current hand and suggest the best discard"
-- **Learning**: "Explain why this move is better than alternatives"
-- **Pattern Recognition**: "What winning patterns can I pursue with these tiles?"
-
-## Troubleshooting
-
-### Ollama Connection Issues
-
-If you see "❌ Ollama connection failed":
-
-```bash
-# Check if Ollama is running
-ollama serve
-
-# Verify the service is on port 11434
-curl http://localhost:11434/api/tags
-```
-
-### Model Not Found
-
-If the model isn't available:
-
-```bash
-# Re-download the model
-ollama pull minicpm-v:latest
-
-# List available models
-ollama list
-```
-
-### Python Dependencies
-
-If you encounter package issues:
-
-```bash
-# Update pip and reinstall
-pip install --upgrade pip
-pip install -r requirements.txt --force-reinstall
-```
-
-## Technical Architecture
-
-- **Backend**: FastAPI with Ollama integration
-- **Frontend**: Responsive HTML/CSS/JavaScript chat interface
-- **AI Model**: MiniCPM-V (vision-capable model for tile recognition)
-- **Image Processing**: Base64 encoding for image uploads
-
-## Development
-
-### Project Structure
-
-```
-mahjong_alex/
-├── main.py           # FastAPI backend server
-├── index.html        # Chat interface frontend
-├── requirements.txt  # Python dependencies
-├── PRD.md           # Product Requirements Document
-└── README.md        # This file
-```
-
-### API Endpoints
-
-- `GET /` - Serve the chat interface
-- `POST /api/chat` - Chat with AI (supports image uploads)
-- `GET /api/health` - Health check for Ollama connection
-- `GET /api/models` - List available Ollama models
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## Acknowledgments
-
-- Built for Alex's non-profit Mahjong community
-- Uses [Ollama](https://ollama.com) for local AI model hosting
-- Powered by [MiniCPM-V](https://github.com/OpenBMB/MiniCPM-V) vision model
+Deployment: see [README-deployment.md](README-deployment.md).

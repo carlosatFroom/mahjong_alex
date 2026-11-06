@@ -160,14 +160,14 @@ def best_per_hand(card, holding, visible=None, count=3):
     return out
 
 
-def discard_values(card, holding, visible=None, top=24):
+def discard_values(card, holding, visible=None, top=8):
     """Score each concealed non-joker tile: higher = better to give away.
 
-    Score of tile t = sum over the closest bindings of 0.5**needed after removing
+    Score of tile t = sum over the closest hands (best binding of each) of 0.5**needed after removing
     t. Removing a useless tile leaves the sum unchanged; removing a needed tile
     halves that binding's share.
     """
-    targets = ranked(card, holding, visible, limit=top)
+    targets = best_per_hand(card, holding, visible, top)
     have, jokers = holding.counts()
     exposed = holding.exposed_groups()
     values = {}

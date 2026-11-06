@@ -129,3 +129,26 @@ Rejected:
   engine-facts fallback keeps hints working.
 - **Brand placeholders** scraped from the public site may be low resolution → isolated
   in `brand.css` + one logo file for a single swap.
+
+## Deviations during implementation (2026-11-05)
+- Tests live in `tests/test_matcher.py` (tiles, card, matcher), `tests/test_game.py`
+  (Charleston, calls, jokers, dead hand, scoring) and `tests/test_api.py` (API, store,
+  coach) instead of one file per phase.
+- Coach prompt/LLM call is in a top-level `coach.py`; `mahjong/coach_facts.py` stays
+  engine-only.
+- Automatic move feedback is engine text only (no LLM call), so it does not use the
+  40-message cap. Hints show the engine facts on screen plus a short LLM explanation;
+  the LLM is told not to restate or contradict them (it misread racks when asked to).
+- `gpt-oss-20b` is a reasoning model: calls use `reasoning_effort="low"` and a 2000-token
+  budget, otherwise it returned empty content.
+- Blind passing is human-only; bots always pass from their own rack (avoids cyclic
+  blind passes).
+- Discard/pass scoring uses the best binding of each of the 8 closest hands, so the
+  suggestion agrees with the closest hands shown to the player.
+- Rate limiting is split: game moves 240/min per IP, coach 20/min, other paths 20/min.
+- Also removed `requirements-secure.txt` and `deploy-secure.md` (FastAPI/vision stack);
+  dropped the hardcoded internal IP in `config.py`.
+- Vulnerability scan flagged Flask 3.1.2 (CVE-2026-27205) and python-dotenv 1.1.1
+  (CVE-2026-28684); pinned to 3.1.3 / 1.2.2, re-scan clean.
+- Brand: woodlandsmahjongsociety.com serves a bot-verification page to automated
+  clients, so `brand.css` and `logo.svg` are clearly marked placeholders.

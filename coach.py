@@ -4,10 +4,10 @@ The LLM never computes anything: hand names, tile counts and suggestions come
 from mahjong.coach_facts. If the LLM fails, callers fall back to facts_text().
 """
 
-import json
 import logging
 
 from mahjong.coach_facts import coach_view, facts_text, hint_facts
+from mahjong.tiles import tile_name
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,11 @@ The card in use:
 {card}
 
 How to coach:
-- Be brief (at most 6 short sentences), warm, and concrete.
-- ENGINE FACTS are computed by the game engine and are always correct. Use them; never \
-invent hand names, tile counts, or tiles needed. If the facts don't answer something, say so.
+- Be brief (2 to 4 short sentences), warm, and concrete.
+- ENGINE FACTS are computed by the game engine and are always correct, and the player \
+already sees them on screen. Do not repeat the tile lists. Explain WHY the suggestion makes \
+sense, and never contradict it. Never invent hand names, tile counts, or tiles needed; only \
+mention tiles that appear in the player's rack or the ENGINE FACTS.
 - You only know what the player can see: their own rack, exposures, and discards. Never \
 guess what other players hold.
 - Explain the *why* (e.g. flexibility, joker use, what others have exposed) so the player learns.
@@ -46,7 +48,7 @@ def _state_summary(view):
     recent = [f"{v['names'][d['seat']]}:{d['tile']}" for d in v["discards"][-12:]]
     return "\n".join([
         f"Phase: {v['phase']}. Player sits {v['seat_wind']}. Tiles left in wall: {v['wall_count']}.",
-        f"Player rack: {' '.join(v['hand'])}",
+        f"Player rack: {' '.join(v['hand'])} ({', '.join(tile_name(t) for t in v['hand'])})",
         f"Player exposures: {[''.join(e['tiles']) for e in v['exposures'][me]] or 'none'}",
         "Other players: " + "; ".join(others),
         f"Recent discards: {' '.join(recent) or 'none'}",
@@ -62,13 +64,14 @@ def build_message(card, view, kind, question=None):
     ask = {"hint": "Give the player a hint for their current decision.",
            "question": f"The player asks: {question}"}[kind]
     msg = (f"GAME STATE\n{_state_summary(view)}\n\n"
-           f"ENGINE FACTS\n{json.dumps(facts, indent=1)}\n\n{ask}")
+           f"ENGINE FACTS\n{facts_text(facts)}\n\n{ask}")
     return msg, facts
 
 
 def reply(provider, system, card, view, kind, question=None):
     """Ask the LLM; on any provider failure return the plain engine facts."""
     message, facts = build_message(card, view, kind, question)
+    shown = facts_text(facts) if kind == "hint" else None
     if provider is None:
         return {"text": facts_text(facts), "source": "engine"}
     try:
@@ -79,4 +82,4 @@ def reply(provider, system, card, view, kind, question=None):
     text = (out.get("content") or "").strip()
     if not text:
         return {"text": facts_text(facts), "source": "engine"}
-    return {"text": text, "source": "llm", "tokens": out["total_tokens"]}
+    return {"text": text, "facts": shown, "source": "llm", "tokens": out["total_tokens"]}
