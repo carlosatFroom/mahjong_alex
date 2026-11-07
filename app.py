@@ -19,7 +19,7 @@ from config import config
 from content_filter import ContentFilter
 from llm_providers import get_llm_provider
 from mahjong.card import load_card
-from mahjong.coach_facts import move_feedback
+from mahjong import postmortem, review
 from mahjong.game import Game, GameError
 from store import GameStore
 
@@ -123,18 +123,29 @@ def create_app(overrides=None):
         if not game:
             return jsonify({"error": "Game not found or expired."}), 404
         action = request.get_json(silent=True) or {}
-        before = game.view_for(game.human)
         try:
+            entry = review.record(card, game, action)
             game.act(action)
         except GameError as e:
             return jsonify({"error": str(e)}), 400
         except (KeyError, TypeError, ValueError):
             return jsonify({"error": "Malformed action."}), 400
-        feedback = None
-        if action.get("type") == "discard" and not before.get("dead"):
-            feedback = move_feedback(card, before, action.get("tile"))
+        feedback = entry["feedback"] if entry else None
         store.save(game_id, session_id(), game.to_dict())
         return game_payload(game_id, game, feedback=feedback)
+
+    @app.route("/api/game/<game_id>/postmortem")
+    def get_postmortem(game_id):
+        game = load_game(game_id)
+        if not game:
+            return jsonify({"error": "Game not found or expired."}), 404
+        if game.phase != "over":
+            return jsonify({"error": "The review is available when the game ends."}), 409
+        if not getattr(game, "postmortem", None):
+            game.postmortem = postmortem.build(getattr(game, "history", []), game.result,
+                                               game.names, game.human)
+            store.save(game_id, session_id(), game.to_dict())
+        return jsonify(game.postmortem)
 
     @app.route("/api/game/<game_id>/coach", methods=["POST"])
     def ask_coach(game_id):
