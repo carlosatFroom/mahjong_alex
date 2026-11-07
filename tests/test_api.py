@@ -189,22 +189,24 @@ def test_hint_discard_reason_matches_closest_hands(card):
 
 
 def test_following_the_hint_never_triggers_feedback(card):
-    from mahjong.coach_facts import hint_facts, move_feedback
+    from mahjong.coach_facts import hint_facts, move_feedback, odds_model
     from mahjong.tiles import tile_name
     from sim import autopilot
     followed = scolded_alternative = 0
     for seed in range(10):
         g = Game.new(card, seed=seed, human=2)
         g.advance()
-        while g.phase != "over":
+        while g.phase != "over" and followed < 30:
             if g.prompt()["type"] == "discard":
                 view = g.view_for(g.human)
                 d = hint_facts(card, view).get("suggest_discard")
                 if d:
                     code = next(t for t in view["hand"] if tile_name(t) == d["tile"])
-                    assert move_feedback(card, view, code) is None
+                    assert move_feedback(card, view, code) is None  # fresh model, same numbers
                     followed += 1
-                    worse = [t for t in set(view["hand"]) if t != "J" and move_feedback(card, view, t)]
+                    model = odds_model(card, view)
+                    worse = [t for t in set(view["hand"])
+                             if t != "J" and move_feedback(card, view, t, model)]
                     scolded_alternative += bool(worse)
             g.act(autopilot(g))
     assert followed >= 20 and scolded_alternative > 0

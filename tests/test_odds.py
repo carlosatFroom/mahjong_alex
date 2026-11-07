@@ -110,3 +110,13 @@ def test_hint_speed(card):
     m.hands(3)
     m.best_discards(3)
     assert time.time() - t < 1.5
+
+
+def test_hint_lists_hands_most_likely_first(card):
+    from mahjong.coach_facts import facts_text, hint_facts
+    v = _view(_midgame(card, seed=5, turns=16))
+    facts = hint_facts(card, v)
+    odds = [h["odds"] for h in facts["closest_hands"]]
+    assert odds and odds == sorted(odds, reverse=True)
+    text = facts_text(facts)
+    assert "likely" in text and "unseen" in text and "own draws only" in text

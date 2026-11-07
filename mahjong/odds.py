@@ -84,6 +84,7 @@ class OddsModel:
         self.have, self.jokers = holding.counts()
         self.exposed = holding.exposed_groups()
         self._hands = self._rank(visible)
+        self._scores = None
 
     def _rank(self, visible):
         by_hand = {}
@@ -116,9 +117,14 @@ class OddsModel:
     def hands(self, count=None):
         return self._hands[:count] if count else list(self._hands)
 
-    def discard_scores(self, top=TOP_HANDS):
+    def discard_scores(self):
         """{tile: [odds of each top hand after giving the tile away]} for each non-joker tile."""
-        targets = self._hands[:top]
+        if self._scores is None:
+            self._scores = self._discard_scores()
+        return self._scores
+
+    def _discard_scores(self):
+        targets = self._hands[:TOP_HANDS]
         out = {}
         for t in sorted(self.have):
             if self.have[t] <= 0:
@@ -132,7 +138,7 @@ class OddsModel:
         """Pick k tiles to give away, keeping the most total odds. Never jokers."""
         picked = []
         for _ in range(k):
-            scores = self.discard_scores()
+            scores = self._discard_scores() if picked else self.discard_scores()
             if not scores:
                 break
             tile = max(scores, key=lambda t: sum(scores[t]))  # sorted keys: ties -> lowest code
