@@ -1,5 +1,5 @@
 # Completion odds and end-of-game post-mortem
-Status: approved    ·    Date: 2026-11-07
+Status: implemented    ·    Date: 2026-11-07
 
 ## Problem
 The coach ranks hands by "tiles away", so a hand needing 2 tiles with 1 copy left
@@ -55,8 +55,8 @@ missing tiles really were.
     to the browser while the game is in progress.
 
 ### Post-mortem
-13. When the game ends (win by anyone, or wall game), the page shows a post-mortem below
-    the score table. It is written entirely by the engine; it never calls the LLM.
+13. When the game ends (win by anyone, or wall game), the page shows a post-mortem as a
+    "Game review" message in the coach panel (the score stays in the table area). It is written entirely by the engine; it never calls the LLM.
 14. **Collapse**: when the odds of the hand that was most likely at the previous decision
     drop by half or more and by at least 5 points before the next decision, the
     post-mortem names the turn and the newly visible tiles that caused it ("Hazel

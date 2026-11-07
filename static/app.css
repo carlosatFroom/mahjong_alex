@@ -123,6 +123,17 @@ button.wide { width: 100%; }
 .msg.engine { background: var(--brand-accent-soft); border-top-left-radius: 4px; }
 .msg.you { background: var(--brand-primary); color: #fff; align-self: flex-end; border-top-right-radius: 4px; }
 .msg.note { background: transparent; color: var(--brand-muted); font-size: 13px; padding: 0 4px; }
+.msg.review { white-space: normal; }
+.review h4 { margin: 0 0 4px; font-family: var(--font-display); font-size: 20px; color: var(--brand-primary); }
+.review h5 { margin: 10px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.review p { margin: 0 0 4px; }
+.review ol, .review ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.review .hindsight { margin-top: 8px; padding: 6px 10px; border-left: 3px solid var(--brand-muted); background: rgba(255,255,255,.5); }
+.review details { margin-top: 8px; }
+.review summary { cursor: pointer; font-weight: 600; }
+.review table { border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+.review td { padding: 2px 6px 2px 0; vertical-align: top; }
+.review tr.flag td { font-weight: 600; color: var(--brand-primary); }
 .msg .src { display: block; font-size: 11px; opacity: .6; margin-top: 4px; }
 .coach-controls { padding: 10px 16px 14px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #eee6d6; }
 .coach-form { display: flex; gap: 6px; }

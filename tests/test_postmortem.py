@@ -66,7 +66,7 @@ def test_collapse_switch_and_costly_are_reported():
     assert len(pm["key_moments"]) == 3
     assert [m["at"] for m in pm["key_moments"]] == ["Your turn 2", "Your turn 3", "Your turn 5"]
     assert len(pm["timeline"]) == 5 and pm["timeline"][1]["flag"]
-    assert pm["hindsight"]["hand"] == "Pungs"
+    assert pm["hindsight"]["hand"].startswith("Pungs")
     assert pm["hindsight"]["lines"] == ["1× 5 Bam: 2 in Ivy's rack, 1 still in the wall"]
 
 

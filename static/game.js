@@ -296,6 +296,61 @@
     state.selected = [];
     state.blind = 0;
     render();
+    if (view.phase === "over") showReview();
+  }
+
+  // --------------------------------------------------------------- review
+  async function showReview() {
+    if (state.reviewed === state.gameId) return;
+    state.reviewed = state.gameId;
+    const res = await api(`/api/game/${state.gameId}/postmortem`);
+    if (!res.ok) { state.reviewed = null; return; }
+    const pm = res.data;
+    const box = el("div", "msg engine review");
+    box.appendChild(el("h4", "", "Game review"));
+    box.appendChild(el("p", "", pm.summary));
+    if (pm.empty) {
+      box.appendChild(el("p", "", pm.text));
+    } else {
+      box.appendChild(el("h5", "", "Key moments"));
+      if (!pm.key_moments.length) {
+        box.appendChild(el("p", "", "No big swings: your choices kept your best odds."));
+      } else {
+        const ol = el("ol");
+        pm.key_moments.forEach((m) => {
+          const li = el("li");
+          li.appendChild(el("strong", "", m.at + ": "));
+          li.appendChild(document.createTextNode(m.text));
+          ol.appendChild(li);
+        });
+        box.appendChild(ol);
+      }
+      if (pm.hindsight && pm.hindsight.lines.length) {
+        const h = el("div", "hindsight");
+        h.appendChild(el("h5", "", "Hindsight — you couldn't have known this"));
+        h.appendChild(el("p", "", `Where the tiles for ${pm.hindsight.hand} were (${pm.hindsight.at}):`));
+        const ul = el("ul");
+        pm.hindsight.lines.forEach((l) => ul.appendChild(el("li", "", l)));
+        h.appendChild(ul);
+        box.appendChild(h);
+      }
+      const det = el("details");
+      det.appendChild(el("summary", "", `Turn by turn (${pm.timeline.length} decisions)`));
+      const t = el("table");
+      pm.timeline.forEach((r) => {
+        const tr = el("tr", r.flag ? "flag" : "");
+        tr.appendChild(el("td", "", r.at));
+        tr.appendChild(el("td", "", r.action));
+        tr.appendChild(el("td", "", r.top));
+        t.appendChild(tr);
+      });
+      det.appendChild(t);
+      box.appendChild(det);
+    }
+    box.appendChild(el("span", "src", "computed by the game engine"));
+    const log = $("coach-log");
+    log.appendChild(box);
+    log.scrollTop = log.scrollHeight;
   }
 
   async function startGame(difficulty) {

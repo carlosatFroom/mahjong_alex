@@ -21,6 +21,16 @@ Rejected:
   ≈ 20 s at the end; storing odds at decision time spreads the cost (<1 s per move) and
   the discard feedback needs those numbers anyway.
 
+Deviations made during implementation (code proved the plan wrong):
+- **Recording lives in `mahjong/review.py`, called by `app.py`, not inside `Game.act()`.**
+  Inside the engine it would run for the simulator's autopilot too and make
+  `sim.py --games 1000` take hours. The engine is unchanged; `history` is still part of
+  the stored game state.
+- **Post-mortem renders in the coach panel**, not under the score table: the action bar is
+  one row high and a long review there pushes the rack off screen.
+- **Missed switch also requires the discard to cost the most likely hand >= 1 point**, so a
+  harmless discard that happens to tie between hands is not flagged.
+
 ## Prior art
 - id=6957 ✓ — `_uses` check in `coach_facts.py` stopped contradictory advice; keep it for
   the "why" text and missed-switch attribution.
@@ -38,8 +48,8 @@ Rejected:
   takes the stored before-odds and uses the 1-point threshold; `facts_text` prints odds,
   unseen counts and the draw-only caveat. Keep the `_uses` reasons.
 - **`mahjong/matcher.py`**: unchanged API; bots keep `choose_discards`/`ranked`.
-- **`mahjong/game.py`**: new `history` list in state. In `act()`, before applying a human
-  action, append {turn, prompt type, action, snapshot (rack, own exposures, visible
+- **New `mahjong/review.py`** (see deviations): before applying a human action, append to
+  `game.history` {turn, prompt type, action, snapshot (rack, own exposures, visible
   counts, wall count), top-hand odds, discard odds when discarding, hidden locations of
   the top hand's missing tiles}. After the action, fill the after-odds. `view_for` never
   includes `history`.

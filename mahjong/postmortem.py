@@ -102,7 +102,8 @@ def _hindsight(history):
             spots.append(f"{where['wall']} still in the wall")
         lines.append(f"{m}× {tile_name(code)}: " + (", ".join(spots) or
                      "every copy was already on the table; only jokers could help"))
-    return {"hand": hand["display"], "at": source["label"], "lines": lines}
+    name = f"{hand['display']} ({hand['version']})" if hand.get("version") else hand["display"]
+    return {"hand": name, "at": source["label"], "lines": lines}
 
 
 def build(history, result, names, human):

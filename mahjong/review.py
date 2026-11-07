@@ -91,6 +91,7 @@ def record(card, game, action):
         "dead": bool(view.get("dead")),
         "visible_by": _visible_by(view),
         "hands": [{"id": h.hand.id, "display": h.hand.display, "points": h.hand.points,
+                   "version": h.binding.describe(),
                    "odds": h.odds, "needed": h.needed,
                    "missing": [[c, m] for c, m, _ in missing_tiles(h.binding, have, 0, exposed)]}
                   for h in hands],
