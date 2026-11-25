@@ -4,15 +4,23 @@ from fastapi.responses import HTMLResponse
 import requests
 import base64
 import json
+import logging
 from typing import Optional
 import os
 import time
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Mahjong AI Tutor", version="1.0.0")
 
 # Ollama configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "minicpm-v:latest"  # Vision-capable model
+
+# Request timeouts (seconds) for calls to Ollama
+OLLAMA_LIST_TIMEOUT = 5
+OLLAMA_CHAT_TIMEOUT = 120
 
 # Mahjong tutor system prompt
 MAHJONG_SYSTEM_PROMPT = """You are an expert Mahjong tutor with deep knowledge of strategy, tile reading, and game theory. 
@@ -62,7 +70,7 @@ class OllamaClient:
         first_token_time = None
         
         try:
-            response = requests.post(url, json=payload, timeout=60)
+            response = requests.post(url, json=payload, timeout=OLLAMA_CHAT_TIMEOUT)
             first_token_time = time.time()
             response.raise_for_status()
             
@@ -81,16 +89,18 @@ class OllamaClient:
             return response_data
             
         except requests.exceptions.RequestException as e:
+            logger.exception("Ollama chat request failed")
             raise HTTPException(status_code=500, detail=f"Ollama API error: {str(e)}")
     
     def list_models(self):
         """List available models in Ollama."""
         url = f"{self.base_url}/api/tags"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=OLLAMA_LIST_TIMEOUT)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
+            logger.exception("Ollama list models request failed")
             raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
 
 ollama_client = OllamaClient()
@@ -148,6 +158,7 @@ async def health_check():
             "available_models": len(models.get("models", []))
         }
     except Exception as e:
+        logger.exception("Health check failed")
         return {
             "status": "unhealthy",
             "error": str(e),
